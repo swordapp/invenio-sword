@@ -83,6 +83,7 @@ setup(
         'invenio_base.apps': [
         ],
         'invenio_base.api_apps': [
+            'invenio_sword = invenio_sword:InvenioSword',
         ],
     },
     extras_require=extras_require,
