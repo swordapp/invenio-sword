@@ -1,4 +1,4 @@
-from . import api, config
+from . import views, config
 
 
 class InvenioSword(object):
@@ -14,4 +14,13 @@ class InvenioSword(object):
                 app.config.setdefault(k, getattr(config, k))
 
     def init_app(self, app):
-        app.register_blueprint(api.create_blueprint())
+        app.register_blueprint(views.create_blueprint())
+
+
+class InvenioSwordWellKnown(object):
+    def __init__(self, app=None):
+        if app:
+            self.init_app(app)
+
+    def init_app(self, app):
+        app.register_blueprint(views.create_wellknown_blueprint())

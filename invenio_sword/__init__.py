@@ -1,2 +1,2 @@
-from .ext import InvenioSword
+from .ext import InvenioSword, InvenioSwordWellKnown
 from .version import __version__

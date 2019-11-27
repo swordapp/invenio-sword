@@ -11,4 +11,4 @@ def jsonld_serializer(data):
         '@id': data.get('@id') or request.url,
         **data,
     }
-    return Response(json.dumps(data), mimetype='application/ld+json')
+    return Response(json.dumps(data, indent=2) + '\n', mimetype='application/ld+json')
