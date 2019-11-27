@@ -6,11 +6,18 @@ from invenio_sword.api import SWORDDeposit
 from .base import Packaging
 
 
-__all__ = ['BinaryPackaging']
+__all__ = ["BinaryPackaging"]
 
 
 class BinaryPackaging(Packaging):
-    def ingest(self, *, record: SWORDDeposit, stream: typing.BinaryIO, filename: str=None, content_type: str):
+    def ingest(
+        self,
+        *,
+        record: SWORDDeposit,
+        stream: typing.BinaryIO,
+        filename: str = None,
+        content_type: str
+    ):
         if not filename:
             filename = "data" + mimetypes.guess_extension(content_type)
 

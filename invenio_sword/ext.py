@@ -10,7 +10,7 @@ class InvenioSword(object):
     def init_config(self, app):
 
         for k in dir(config):
-            if k.startswith('SWORD_'):
+            if k.startswith("SWORD_"):
                 app.config.setdefault(k, getattr(config, k))
 
     def init_app(self, app):

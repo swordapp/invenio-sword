@@ -28,8 +28,8 @@ import os
 
 from setuptools import find_packages, setup
 
-readme = open('README.rst').read()
-history = open('CHANGES.rst').read()
+readme = open("README.rst").read()
+history = open("CHANGES.rst").read()
 
 tests_require = [
     # 'check-manifest>=0.25',
@@ -46,7 +46,7 @@ tests_require = [
     # 'reportlab>=3.3.0',
 ]
 
-invenio_search_version = '1.2.0'
+invenio_search_version = "1.2.0"
 
 extras_require = {
     # 'docs': [
@@ -68,36 +68,40 @@ extras_require = {
 }
 
 
-extras_require['all'] = []
+extras_require["all"] = []
 for name, reqs in extras_require.items():
     if name in (
-            'sqlite', 'elasticsearch2',
-            'elasticsearch5', 'elasticsearch6', 'elasticsearch7'):
+        "sqlite",
+        "elasticsearch2",
+        "elasticsearch5",
+        "elasticsearch6",
+        "elasticsearch7",
+    ):
         continue
-    extras_require['all'].extend(reqs)
+    extras_require["all"].extend(reqs)
 
 setup_requires = [
-    'Babel>=1.3',
-    'pytest-runner>=2.6.2',
+    "Babel>=1.3",
+    "pytest-runner>=2.6.2",
 ]
 
 install_requires = [
-    'Flask-BabelEx>=0.9.3',
-    'Flask-Login>=0.3.2',
-    'Flask>=0.11.1',
-    'SQLAlchemy-Continuum>=1.3.6',
-    'SQLAlchemy-Utils[encrypted]>=0.33',
-    'dictdiffer>=0.5.0.post1',
-    'invenio-assets>=1.0.0',
-    'invenio-db[versioning]>=1.0.1',
-    'invenio-files-rest>=1.0.1',
-    'invenio-jsonschemas>=1.0.0a3',
-    'invenio-oauth2server>=1.0.3',
-    'invenio-records-files>=1.0.0a10',
-    'invenio-records-rest>=1.5.0',
-    'invenio-records-ui>=1.0.1',
-    'invenio-search-ui>=1.0.0a5',
-    'rfc6266-parser',
+    "Flask-BabelEx>=0.9.3",
+    "Flask-Login>=0.3.2",
+    "Flask>=0.11.1",
+    "SQLAlchemy-Continuum>=1.3.6",
+    "SQLAlchemy-Utils[encrypted]>=0.33",
+    "dictdiffer>=0.5.0.post1",
+    "invenio-assets>=1.0.0",
+    "invenio-db[versioning]>=1.0.1",
+    "invenio-files-rest>=1.0.1",
+    "invenio-jsonschemas>=1.0.0a3",
+    "invenio-oauth2server>=1.0.3",
+    "invenio-records-files>=1.0.0a10",
+    "invenio-records-rest>=1.5.0",
+    "invenio-records-ui>=1.0.1",
+    "invenio-search-ui>=1.0.0a5",
+    "rfc6266-parser",
 ]
 
 packages = find_packages()
@@ -105,36 +109,34 @@ packages = find_packages()
 
 # Get the version string. Cannot be done with import!
 g = {}
-with open(os.path.join('invenio_sword', 'version.py'), 'rt') as fp:
+with open(os.path.join("invenio_sword", "version.py"), "rt") as fp:
     exec(fp.read(), g)
-    version = g['__version__']
+    version = g["__version__"]
 
 setup(
-    name='invenio-sword',
+    name="invenio-sword",
     version=version,
     description=__doc__,
-    long_description=readme + '\n\n' + history,
-    long_description_content_type='text/x-rst',
-    keywords='invenio sword deposit upload',
-    license='GPLv2',
-    author='CERN',
-    author_email='info@inveniosoftware.org',
-    url='https://github.com/inveniosoftware/invenio-sword',
+    long_description=readme + "\n\n" + history,
+    long_description_content_type="text/x-rst",
+    keywords="invenio sword deposit upload",
+    license="GPLv2",
+    author="CERN",
+    author_email="info@inveniosoftware.org",
+    url="https://github.com/inveniosoftware/invenio-sword",
     packages=packages,
     zip_safe=False,
     include_package_data=True,
-    platforms='any',
+    platforms="any",
     entry_points={
-        'invenio_base.apps': [
-            'invenio_sword_wellknown = invenio_sword:InvenioSwordWellKnown',
+        "invenio_base.apps": [
+            "invenio_sword_wellknown = invenio_sword:InvenioSwordWellKnown",
         ],
-        'invenio_base.api_apps': [
-            'invenio_sword = invenio_sword:InvenioSword',
-        ],
-        'invenio_sword.packaging': [
-            'http://purl.org/net/sword/3.0/package/Binary = invenio_sword.packaging:BinaryPackaging',
-            'http://purl.org/net/sword/3.0/package/SimpleZip = invenio_sword.packaging:SimpleZipPackaging',
-            'http://purl.org/net/sword/3.0/package/SWORDBagIt = invenio_sword.packaging:SWORDBagItPackaging',
+        "invenio_base.api_apps": ["invenio_sword = invenio_sword:InvenioSword",],
+        "invenio_sword.packaging": [
+            "http://purl.org/net/sword/3.0/package/Binary = invenio_sword.packaging:BinaryPackaging",
+            "http://purl.org/net/sword/3.0/package/SimpleZip = invenio_sword.packaging:SimpleZipPackaging",
+            "http://purl.org/net/sword/3.0/package/SWORDBagIt = invenio_sword.packaging:SWORDBagItPackaging",
         ],
     },
     extras_require=extras_require,
@@ -142,18 +144,18 @@ setup(
     setup_requires=setup_requires,
     tests_require=tests_require,
     classifiers=[
-        'Environment :: Web Environment',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
-        'Operating System :: OS Independent',
-        'Programming Language :: Python',
-        'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
-        'Topic :: Software Development :: Libraries :: Python Modules',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: Implementation :: CPython',
-        'Development Status :: 1 - Planning',
+        "Environment :: Web Environment",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python",
+        "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: Implementation :: CPython",
+        "Development Status :: 1 - Planning",
     ],
 )
