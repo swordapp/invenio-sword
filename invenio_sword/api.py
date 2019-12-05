@@ -1,5 +1,4 @@
 from flask import url_for
-
 from invenio_deposit.api import Deposit
 
 

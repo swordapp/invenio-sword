@@ -1,4 +1,4 @@
-from . import views, config
+from . import config, views
 
 
 class InvenioSword(object):

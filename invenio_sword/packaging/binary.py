@@ -1,10 +1,10 @@
-import typing
 import mimetypes
+import typing
 
 from invenio_files_rest.models import ObjectVersion
-from invenio_sword.api import SWORDDeposit
-from .base import Packaging
 
+from ..api import SWORDDeposit
+from .base import Packaging
 
 __all__ = ["BinaryPackaging"]
 

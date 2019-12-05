@@ -5,7 +5,8 @@ import typing
 import zipfile
 
 from invenio_files_rest.models import ObjectVersion
-from invenio_sword.api import SWORDDeposit
+
+from ..api import SWORDDeposit
 from .base import Packaging
 
 __all__ = ["SimpleZipPackaging"]

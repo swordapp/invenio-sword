@@ -1,15 +1,15 @@
 import http.client
 
-from flask import current_app, request, Blueprint, redirect, Response
+from flask import Blueprint, Response, current_app, redirect, request
 from invenio_db import db
-
-from invenio_records_rest.views import pass_record
 from invenio_rest import ContentNegotiatedMethodView
 from werkzeug.exceptions import BadRequest
 from werkzeug.http import parse_options_header
 
-from invenio_sword.api import SWORDDeposit
+from invenio_records_rest.views import pass_record
+
 from . import serializers
+from .api import SWORDDeposit
 
 
 class ServiceDocumentView(ContentNegotiatedMethodView):
