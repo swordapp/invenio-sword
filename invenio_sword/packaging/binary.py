@@ -21,4 +21,6 @@ class BinaryPackaging(Packaging):
         if not filename:
             filename = "data" + mimetypes.guess_extension(content_type)
 
-        ObjectVersion.create(record.bucket, filename, stream=stream)
+        ObjectVersion.create(
+            record.bucket, filename, mimetype=content_type, stream=stream
+        )
