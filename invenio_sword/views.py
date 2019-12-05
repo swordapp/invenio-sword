@@ -1,5 +1,9 @@
-from flask import current_app, request, Blueprint, redirect
+import http.client
+
+from flask import current_app, request, Blueprint, redirect, Response
 from invenio_db import db
+
+from invenio_records_rest.views import pass_record
 from invenio_rest import ContentNegotiatedMethodView
 from werkzeug.exceptions import BadRequest
 from werkzeug.http import parse_options_header
@@ -53,7 +57,31 @@ class ServiceDocumentView(ContentNegotiatedMethodView):
         record.commit()
         db.session.commit()
 
-        return {"d": repr(request.data), "f": repr(request.files), "dd": dict(record)}
+        response = self.make_response(record.get_status_as_jsonld())  # type: Response
+        response.status_code = http.client.CREATED
+        response.headers["Location"] = record.sword_api_url
+        return response
+
+
+class DepositStatusView(ContentNegotiatedMethodView):
+    @pass_record
+    def get(self, pid, record: SWORDDeposit):
+        return record.get_status_as_jsonld()
+
+
+class DepositMetadataView(ContentNegotiatedMethodView):
+    @pass_record
+    def get(self, pid, record: SWORDDeposit):
+        raise NotImplementedError
+
+
+class DepositFilesetView(ContentNegotiatedMethodView):
+    @pass_record
+    def get(self, pid, record: SWORDDeposit):
+        raise NotImplementedError
+
+
+_PID = 'pid(depid,record_class="invenio_sword.api:SWORDDeposit")'
 
 
 def create_blueprint(prefix="/sword"):
@@ -63,6 +91,31 @@ def create_blueprint(prefix="/sword"):
         prefix + "/service-document",
         endpoint="service-document",
         view_func=ServiceDocumentView.as_view(
+            "service",
+            serializers={"application/ld+json": serializers.jsonld_serializer,},
+        ),
+    )
+
+    blueprint.add_url_rule(
+        prefix + "/deposit/<{}:pid_value>".format(_PID),
+        endpoint="deposit-status",
+        view_func=DepositStatusView.as_view(
+            "service",
+            serializers={"application/ld+json": serializers.jsonld_serializer,},
+        ),
+    )
+    blueprint.add_url_rule(
+        prefix + "/deposit/<{}:pid_value>/metadata".format(_PID),
+        endpoint="deposit-metadata",
+        view_func=DepositMetadataView.as_view(
+            "service",
+            serializers={"application/ld+json": serializers.jsonld_serializer,},
+        ),
+    )
+    blueprint.add_url_rule(
+        prefix + "/deposit/<{}:pid_value>/fileset".format(_PID),
+        endpoint="deposit-fileset",
+        view_func=DepositFilesetView.as_view(
             "service",
             serializers={"application/ld+json": serializers.jsonld_serializer,},
         ),
