@@ -16,7 +16,6 @@
 
 """Sphinx configuration."""
 
-
 # -- Project information -----------------------------------------------------
 
 project = "Invenio-SWORD"
