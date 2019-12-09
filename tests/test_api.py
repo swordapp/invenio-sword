@@ -21,23 +21,9 @@
 # In applying this license, CERN does not
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
-
 """Test the API."""
-
-from __future__ import absolute_import, print_function
-
-from copy import deepcopy
-
-import pytest
-from invenio_db import db
-from invenio_pidstore.errors import PIDInvalidAction
-from invenio_records.errors import MissingModelError
-from jsonschema.exceptions import RefResolutionError
-from six import BytesIO
-from sqlalchemy.orm.exc import NoResultFound
-
-from invenio_deposit.api import Deposit
-from invenio_deposit.errors import MergeConflict
+from __future__ import absolute_import
+from __future__ import print_function
 
 
 def test_get_service_document(api):

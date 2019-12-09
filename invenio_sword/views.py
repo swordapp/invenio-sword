@@ -1,12 +1,15 @@
 import http.client
 
-from flask import Blueprint, Response, current_app, redirect, request
+from flask import Blueprint
+from flask import current_app
+from flask import redirect
+from flask import request
+from flask import Response
 from invenio_db import db
+from invenio_records_rest.views import pass_record
 from invenio_rest import ContentNegotiatedMethodView
 from werkzeug.exceptions import BadRequest
 from werkzeug.http import parse_options_header
-
-from invenio_records_rest.views import pass_record
 
 from . import serializers
 from .api import SWORDDeposit

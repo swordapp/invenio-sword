@@ -1,7 +1,5 @@
 import pkg_resources
 
-from invenio_sword.packaging import BinaryPackaging
-
 SWORD_MAX_UPLOAD_SIZE = 1024 ** 3  # 1 GiB
 SWORD_MAX_BY_REFERENCE_SIZE = 10 * 1024 ** 3  # 10 GiB
 

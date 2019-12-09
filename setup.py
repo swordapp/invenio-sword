@@ -21,12 +21,11 @@
 # In applying this license, CERN does not
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
-
 """Module for depositing record metadata and uploading files."""
-
 import os
 
-from setuptools import find_packages, setup
+from setuptools import find_packages
+from setuptools import setup
 
 readme = open("README.rst").read()
 history = open("CHANGES.rst").read()

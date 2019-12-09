@@ -21,11 +21,9 @@
 # In applying this license, CERN does not
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
-
-
 """Pytest configuration."""
-
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
+from __future__ import print_function
 
 import datetime
 import os
@@ -41,19 +39,27 @@ from flask_breadcrumbs import Breadcrumbs
 from flask_celeryext import FlaskCeleryExt
 from flask_oauthlib.provider import OAuth2Provider
 from flask_security import login_user
-from helpers import fill_oauth2_headers, make_pdf_fixture
+from helpers import fill_oauth2_headers
+from helpers import make_pdf_fixture
 from invenio_access import InvenioAccess
 from invenio_access.models import ActionUsers
 from invenio_accounts import InvenioAccounts
 from invenio_accounts.views import blueprint as accounts_blueprint
 from invenio_assets import InvenioAssets
-from invenio_db import InvenioDB, db
+from invenio_db import db
+from invenio_db import InvenioDB
+from invenio_deposit import InvenioDeposit
+from invenio_deposit import InvenioDepositREST
+from invenio_deposit.api import Deposit
+from invenio_deposit.scopes import write_scope
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location
 from invenio_indexer import InvenioIndexer
 from invenio_jsonschemas import InvenioJSONSchemas
-from invenio_oauth2server import InvenioOAuth2Server, InvenioOAuth2ServerREST
-from invenio_oauth2server.models import Client, Token
+from invenio_oauth2server import InvenioOAuth2Server
+from invenio_oauth2server import InvenioOAuth2ServerREST
+from invenio_oauth2server.models import Client
+from invenio_oauth2server.models import Token
 from invenio_oauth2server.views import (
     settings_blueprint as oauth2server_settings_blueprint,
 )
@@ -65,17 +71,19 @@ from invenio_records_rest.views import create_blueprint_from_app as records_rest
 from invenio_records_ui import InvenioRecordsUI
 from invenio_records_ui.views import create_blueprint_from_app as records_ui_bp
 from invenio_rest import InvenioREST
-from invenio_search import InvenioSearch, current_search, current_search_client
+from invenio_search import current_search
+from invenio_search import current_search_client
+from invenio_search import InvenioSearch
 from invenio_search.errors import IndexAlreadyExistsError
 from invenio_search_ui import InvenioSearchUI
-from six import BytesIO, get_method_self
+from six import BytesIO
+from six import get_method_self
 from sqlalchemy import inspect
-from sqlalchemy_utils.functions import create_database, database_exists, drop_database
+from sqlalchemy_utils.functions import create_database
+from sqlalchemy_utils.functions import database_exists
+from sqlalchemy_utils.functions import drop_database
 from werkzeug.wsgi import DispatcherMiddleware
 
-from invenio_deposit import InvenioDeposit, InvenioDepositREST
-from invenio_deposit.api import Deposit
-from invenio_deposit.scopes import write_scope
 from invenio_sword import InvenioSword
 
 

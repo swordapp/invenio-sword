@@ -1,6 +1,7 @@
 import json
 
-from flask import Response, request
+from flask import request
+from flask import Response
 
 sword_jsonld_context = "https://swordapp.github.io/swordv3/swordv3.jsonld"
 

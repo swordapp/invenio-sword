@@ -1,3 +1,5 @@
-from .bagit import *
-from .binary import *
-from .zip import *
+from .bagit import SWORDBagItPackaging
+from .binary import BinaryPackaging
+from .zip import SimpleZipPackaging
+
+__all__ = ["SWORDBagItPackaging", "BinaryPackaging", "SimpleZipPackaging"]
