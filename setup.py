@@ -94,6 +94,7 @@ install_requires = [
     "dictdiffer>=0.5.0.post1",
     "invenio-assets>=1.0.0",
     "invenio-db[versioning]>=1.0.1",
+    "invenio-deposit>=1.0.0a1",
     "invenio-files-rest>=1.0.1",
     "invenio-jsonschemas>=1.0.0a3",
     "invenio-oauth2server>=1.0.3",
