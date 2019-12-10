@@ -8,8 +8,12 @@ SWORD_PACKAGING_FORMATS = {
     for ep in pkg_resources.iter_entry_points("invenio_sword.packaging")
 }
 
-SWORD_DEFAULT_PACKAGING_FORMAT = "http://purl.org/net/sword/3.0/package/Binary"
 
 SWORD_METADATA_FORMATS = {
-    "http://purl.org/net/sword/3.0/types/Metadata": "invenio_sword.metadata:SWORDMetadata",
+    ep.name: ep.load()
+    for ep in pkg_resources.iter_entry_points("invenio_sword.metadata")
 }
+
+SWORD_DEFAULT_PACKAGING_FORMAT = "http://purl.org/net/sword/3.0/package/Binary"
+
+SWORD_DEFAULT_METADATA_FORMAT = "http://purl.org/net/sword/3.0/types/Metadata"

@@ -47,7 +47,11 @@ class ServiceDocumentView(ContentNegotiatedMethodView):
 
         # print(request.files)
         record = SWORDDeposit.create(
-            {"status": "draft" if in_progress else "published",}
+            {
+                "status": "draft" if in_progress else "published",
+                "metadata": {},
+                "swordMetadata": {},
+            }
         )
 
         packaging.ingest(
