@@ -50,11 +50,11 @@ def test_update_record(metadata_document):
     record = SWORDDeposit(data={"metadata": {}})
     sword_metadata.update_record_metadata(record)
     assert record["metadata"]["title_statement"]["title"] == "The title"
-    #
-    # assert record["swordMetadata"] == {
-    #     "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
-    #     "@type": "Metadata",
-    #     "dc:contributor": "A.N. Other",
-    #     "dc:title": "The title",
-    #     "dcterms:abstract": "This is my abstract",
-    # }
+
+
+def test_metadata_to_json(metadata_document):
+    sword_metadata = SWORDMetadata.from_document(
+        metadata_document, content_type="application/ld+json"
+    )
+    data = sword_metadata.to_json()
+    assert data == sword_metadata.data

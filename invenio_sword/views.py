@@ -9,6 +9,8 @@ from invenio_db import db
 from invenio_records_rest.views import pass_record
 from invenio_rest import ContentNegotiatedMethodView
 from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import NotImplemented
 from werkzeug.http import parse_options_header
 
 from . import serializers
@@ -79,7 +81,39 @@ class DepositStatusView(ContentNegotiatedMethodView):
 class DepositMetadataView(ContentNegotiatedMethodView):
     @pass_record
     def get(self, pid, record: SWORDDeposit):
-        raise NotImplementedError
+        sword_metadata = record.sword_metadata
+        if not sword_metadata:
+            raise NotFound
+        response = Response(
+            sword_metadata.to_document(request.url),
+            content_type=sword_metadata.content_type,
+        )
+        response.headers["Metadata-Format"] = record.sword_metadata_format
+        return response
+
+    @pass_record
+    def put(self, pid, record: SWORDDeposit):
+        metadata_format = request.headers.get("Metadata-Format")
+        if not metadata_format:
+            raise BadRequest("Missing Metadata-Format header")
+        try:
+            metadata_cls = current_app.config["SWORD_METADATA_FORMATS"][metadata_format]
+        except KeyError:
+            # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
+            raise NotImplemented  # noqa: F901
+        record.sword_metadata = metadata_cls.from_document(
+            request.stream, content_type=request.content_type
+        )
+        record.commit()
+        db.session.commit()
+        return Response(status=http.client.NO_CONTENT)
+
+    @pass_record
+    def delete(self, pid, record: SWORDDeposit):
+        record.sword_metadata = None
+        record.commit()
+        db.session.commit()
+        return Response(status=http.client.NO_CONTENT)
 
 
 class DepositFilesetView(ContentNegotiatedMethodView):

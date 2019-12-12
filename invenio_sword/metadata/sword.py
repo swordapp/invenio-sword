@@ -13,6 +13,8 @@ __all__ = ["SWORDMetadata"]
 
 
 class SWORDMetadata(Metadata):
+    content_type = "application/ld+json"
+
     def __init__(self, data):
         self.data = data
 
@@ -20,7 +22,7 @@ class SWORDMetadata(Metadata):
     def from_document(
         cls, document: typing.BinaryIO, content_type: str, encoding: str = "utf_8"
     ) -> "SWORDMetadata":
-        if content_type != "application/ld+json":
+        if content_type != cls.content_type:
             raise UnsupportedMediaType
         data = json.load(document, encoding=encoding)
         data.pop("@id", None)
@@ -39,6 +41,9 @@ class SWORDMetadata(Metadata):
         graph.parse(data=json.dumps(data), format="json-ld")
 
         predicates = set(graph.predicates(subject=subject))
+
+        if "metadata" not in record:
+            record["metadata"] = {}
 
         if DC.title in predicates:
             if "title_statement" not in record["metadata"]:
