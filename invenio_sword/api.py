@@ -25,6 +25,17 @@ class SWORDDeposit(Deposit):
             "fileSet": {"@id": self.sword_fileset_url,},
             "service": url_for("invenio_sword.service-document"),
             "state": self.sword_states,
+            "actions": {
+                "getMetadata": True,
+                "getFiles": True,
+                "appendMetadata": True,
+                "appendFiles": True,
+                "replaceMetadata": True,
+                "replaceFiles": True,
+                "deleteMetadata": True,
+                "deleteFiles": True,
+                "deleteObject": True,
+            },
         }
 
     @property
