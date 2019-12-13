@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import logging
 from typing import Optional
 from typing import TYPE_CHECKING
@@ -7,6 +8,7 @@ from typing import TYPE_CHECKING
 from flask import current_app
 from flask import url_for
 from invenio_deposit.api import Deposit
+from invenio_pidstore.resolver import Resolver
 
 if TYPE_CHECKING:
     from .metadata import Metadata
@@ -89,3 +91,10 @@ class SWORDDeposit(Deposit):
             self["swordMetadataFormat"] = metadata_format
             self["swordMetadata"] = metadata.to_json()
             metadata.update_record_metadata(self)
+
+
+pid_resolver = Resolver(
+    pid_type="depid",
+    object_type="rec",
+    getter=functools.partial(SWORDDeposit.get_record, with_deleted=True),
+)

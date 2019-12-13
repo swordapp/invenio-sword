@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import typing
 import uuid
@@ -8,13 +9,13 @@ import rdflib
 from rdflib.namespace import DC
 from werkzeug.exceptions import UnsupportedMediaType
 
-from .base import Metadata
+from .base import JSONMetadata
 from invenio_sword.api import SWORDDeposit
 
 __all__ = ["SWORDMetadata"]
 
 
-class SWORDMetadata(Metadata):
+class SWORDMetadata(JSONMetadata):
     content_type = "application/ld+json"
 
     def __init__(self, data):
@@ -22,11 +23,17 @@ class SWORDMetadata(Metadata):
 
     @classmethod
     def from_document(
-        cls, document: typing.BinaryIO, content_type: str, encoding: str = "utf_8",
+        cls,
+        document: typing.Union[typing.BinaryIO, dict],
+        content_type: str,
+        encoding: str = "utf_8",
     ) -> SWORDMetadata:
         if content_type != cls.content_type:
             raise UnsupportedMediaType
-        data = json.load(document, encoding=encoding)
+        if isinstance(document, (typing.BinaryIO, io.IOBase)):
+            data = json.load(document, encoding=encoding)
+        else:
+            data = document
         data.pop("@id", None)
         return cls(data)
 

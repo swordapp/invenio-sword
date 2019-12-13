@@ -22,3 +22,14 @@ class Metadata:
 
     def to_document(self, metadata_url):
         raise NotImplementedError
+
+
+class JSONMetadata(Metadata):
+    @classmethod
+    def from_document(
+        cls,
+        document: typing.Union[typing.BinaryIO, dict],
+        content_type: str,
+        encoding: str = "utf_8",
+    ) -> Metadata:
+        raise NotImplementedError

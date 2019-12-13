@@ -48,13 +48,8 @@ class ServiceDocumentView(ContentNegotiatedMethodView):
             raise BadRequest("Unexpected packaging format")
 
         # print(request.files)
-        record = SWORDDeposit.create(
-            {
-                "status": "draft" if in_progress else "published",
-                "metadata": {},
-                "swordMetadata": {},
-            }
-        )
+        record = SWORDDeposit.create({"metadata": {}, "swordMetadata": {},})
+        record["_deposit"]["status"] = "draft" if in_progress else "published"
 
         packaging.ingest(
             record=record,
@@ -68,7 +63,7 @@ class ServiceDocumentView(ContentNegotiatedMethodView):
 
         response = self.make_response(record.get_status_as_jsonld())  # type: Response
         response.status_code = http.client.CREATED
-        response.headers["Location"] = record.sword_api_url
+        response.headers["Location"] = record.sword_status_url
         return response
 
 
