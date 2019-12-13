@@ -15,6 +15,8 @@ from werkzeug.http import parse_options_header
 
 from . import serializers
 from .api import SWORDDeposit
+from invenio_sword.metadata import JSONMetadata
+from invenio_sword.metadata import Metadata
 
 
 class ServiceDocumentView(ContentNegotiatedMethodView):
@@ -41,6 +43,9 @@ class ServiceDocumentView(ContentNegotiatedMethodView):
         packaging = request.headers.get(
             "Packaging", current_app.config["SWORD_DEFAULT_PACKAGING_FORMAT"]
         )
+        metadata_format = request.headers.get(
+            "Metadata-Format", current_app.config["SWORD_DEFAULT_METADATA_FORMAT"]
+        )
 
         try:
             packaging = current_app.config["SWORD_PACKAGING_FORMATS"][packaging]()
@@ -51,12 +56,39 @@ class ServiceDocumentView(ContentNegotiatedMethodView):
         record = SWORDDeposit.create({"metadata": {}, "swordMetadata": {},})
         record["_deposit"]["status"] = "draft" if in_progress else "published"
 
-        packaging.ingest(
-            record=record,
-            stream=request.stream,
-            filename=filename,
-            content_type=content_type,
-        )
+        metadata_deposit = content_disposition_options.get("metadata") == "true"
+        by_reference_deposit = content_disposition_options.get("by-reference") == "true"
+
+        if metadata_deposit:
+            metadata_cls: Metadata = current_app.config["SWORD_METADATA_FORMATS"][
+                metadata_format
+            ]
+            if by_reference_deposit:
+                if not isinstance(metadata_cls, JSONMetadata):
+                    raise BadRequest(
+                        "Metadata-Format must be JSON-based to use Metadata+By-Reference deposit"
+                    )
+                record.sword_metadata = metadata_cls.from_document(
+                    request.json["metadata"], content_type=metadata_cls.content_type
+                )
+            else:
+                record.sword_metadata = metadata_cls.from_document(
+                    request.stream,
+                    content_type=request.content_type,
+                    encoding=request.content_encoding,
+                )
+
+        if by_reference_deposit:
+            # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
+            raise NotImplemented  # noqa: F901
+
+        if not (metadata_deposit or by_reference_deposit):
+            packaging.ingest(
+                record=record,
+                stream=request.stream,
+                filename=filename,
+                content_type=content_type,
+            )
 
         record.commit()
         db.session.commit()
@@ -94,7 +126,6 @@ class DepositMetadataView(ContentNegotiatedMethodView):
         try:
             metadata_cls = current_app.config["SWORD_METADATA_FORMATS"][metadata_format]
         except KeyError:
-            # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
             raise NotImplemented  # noqa: F901
         record.sword_metadata = metadata_cls.from_document(
             request.stream, content_type=request.content_type
