@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing
 
 from invenio_sword.api import SWORDDeposit
@@ -7,7 +9,9 @@ class Metadata:
     content_type: str
 
     @classmethod
-    def from_document(cls, document: typing.BinaryIO, content_type: str) -> "Metadata":
+    def from_document(
+        cls, document: typing.BinaryIO, content_type: str, encoding: str = "utf_8"
+    ) -> Metadata:
         raise NotImplementedError
 
     def update_record_metadata(self, record: SWORDDeposit):

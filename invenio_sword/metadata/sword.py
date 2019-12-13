@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import typing
 import uuid
@@ -20,8 +22,8 @@ class SWORDMetadata(Metadata):
 
     @classmethod
     def from_document(
-        cls, document: typing.BinaryIO, content_type: str, encoding: str = "utf_8"
-    ) -> "SWORDMetadata":
+        cls, document: typing.BinaryIO, content_type: str, encoding: str = "utf_8",
+    ) -> SWORDMetadata:
         if content_type != cls.content_type:
             raise UnsupportedMediaType
         data = json.load(document, encoding=encoding)
