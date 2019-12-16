@@ -8,12 +8,12 @@ from invenio_sword.metadata import SWORDMetadata
 
 
 def test_get_metadata_document(api, location):
-    record = SWORDDeposit.create({})
-    record.sword_metadata = SWORDMetadata({"dc:title": "Deposit title"})
-    record.commit()
-    db.session.commit()
+    with api.app_context(), api.test_client() as client:
+        record = SWORDDeposit.create({})
+        record.sword_metadata = SWORDMetadata({"dc:title": "Deposit title"})
+        record.commit()
+        db.session.commit()
 
-    with api.test_client() as client:
         response = client.get("/sword/deposit/{}/metadata".format(record.pid.pid_value))
         assert response.status_code == 200
         assert response.is_json
@@ -30,9 +30,9 @@ def test_get_metadata_document(api, location):
 
 
 def test_get_metadata_document_when_not_available(api, location):
-    record = SWORDDeposit.create({})
+    with api.app_context(), api.test_client() as client:
+        record = SWORDDeposit.create({})
 
-    with api.test_client() as client:
         status_response = client.get("/sword/deposit/{}".format(record.pid.pid_value))
         assert status_response.status_code == http.client.OK
         status_response = client.get(
@@ -42,17 +42,18 @@ def test_get_metadata_document_when_not_available(api, location):
 
 
 def test_put_metadata_document_without_body(api, location):
-    record = SWORDDeposit.create({})
-
     with api.test_client() as client:
+        record = SWORDDeposit.create({})
+
         response = client.put("/sword/deposit/{}/metadata".format(record.pid.pid_value))
         assert response.status_code == http.client.BAD_REQUEST
 
 
 def test_put_metadata_document(api, location):
-    record = SWORDDeposit.create({})
+    with api.app_context(), api.test_client() as client:
+        record = SWORDDeposit.create({})
+        record.commit()
 
-    with api.test_client() as client:
         response = client.put(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value),
             headers={
@@ -63,18 +64,19 @@ def test_put_metadata_document(api, location):
         )
         assert response.status_code == http.client.NO_CONTENT
 
-    record = SWORDDeposit.get_record(record.id)
-    assert (
-        record.sword_metadata_format == "http://purl.org/net/sword/3.0/types/Metadata"
-    )
-    assert isinstance(record.sword_metadata, SWORDMetadata)
-    assert record.sword_metadata.data == {}
+        record = SWORDDeposit.get_record(record.id)
+        assert (
+            record.sword_metadata_format
+            == "http://purl.org/net/sword/3.0/types/Metadata"
+        )
+        assert isinstance(record.sword_metadata, SWORDMetadata)
+        assert record.sword_metadata.data == {}
 
 
 def test_put_metadata_document_with_unsupported_format(api, location):
-    record = SWORDDeposit.create({})
+    with api.app_context(), api.test_client() as client:
+        record = SWORDDeposit.create({})
 
-    with api.test_client() as client:
         response = client.put(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value),
             headers={
@@ -87,20 +89,19 @@ def test_put_metadata_document_with_unsupported_format(api, location):
 
 
 def test_delete_metadata_document(api, location):
-    record = SWORDDeposit.create({})
-    record.sword_metadata = SWORDMetadata({"dc:title": "Deposit title"})
-    record.commit()
-    db.session.commit()
+    with api.app_context(), api.test_client() as client:
+        record = SWORDDeposit.create({})
+        record.sword_metadata = SWORDMetadata({"dc:title": "Deposit title"})
+        record.commit()
 
-    assert record.sword_metadata_format is not None
-    assert record.sword_metadata is not None
+        assert record.sword_metadata_format is not None
+        assert record.sword_metadata is not None
 
-    with api.test_client() as client:
         response = client.delete(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value)
         )
         assert response.status_code == http.client.NO_CONTENT
 
-    record = SWORDDeposit.get_record(record.id)
-    assert record.sword_metadata_format is None
-    assert record.sword_metadata is None
+        record = SWORDDeposit.get_record(record.id)
+        assert record.sword_metadata_format is None
+        assert record.sword_metadata is None
