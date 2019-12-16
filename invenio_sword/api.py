@@ -52,15 +52,25 @@ class SWORDDeposit(Deposit):
 
     @property
     def sword_status_url(self):
-        return url_for("invenio_sword.deposit-status", pid_value=self.pid.pid_value)
+        return url_for(
+            "invenio_sword.deposit-status", pid_value=self.pid.pid_value, _external=True
+        )
 
     @property
     def sword_metadata_url(self):
-        return url_for("invenio_sword.deposit-metadata", pid_value=self.pid.pid_value)
+        return url_for(
+            "invenio_sword.deposit-metadata",
+            pid_value=self.pid.pid_value,
+            _external=True,
+        )
 
     @property
     def sword_fileset_url(self):
-        return url_for("invenio_sword.deposit-fileset", pid_value=self.pid.pid_value)
+        return url_for(
+            "invenio_sword.deposit-fileset",
+            pid_value=self.pid.pid_value,
+            _external=True,
+        )
 
     @property
     def sword_metadata_format(self):
