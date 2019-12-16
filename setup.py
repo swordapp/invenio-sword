@@ -43,6 +43,8 @@ install_requires = [
     "Flask-BabelEx>=0.9.3",
     "Flask-Login>=0.3.2",
     "Flask>=0.11.1",
+    "rdflib",
+    "rdflib-jsonld",
     "SQLAlchemy-Continuum>=1.3.6",
     "SQLAlchemy-Utils[encrypted]>=0.33",
     "dictdiffer>=0.5.0.post1",
@@ -92,6 +94,9 @@ setup(
             "http://purl.org/net/sword/3.0/package/Binary = invenio_sword.packaging:BinaryPackaging",
             "http://purl.org/net/sword/3.0/package/SimpleZip = invenio_sword.packaging:SimpleZipPackaging",
             "http://purl.org/net/sword/3.0/package/SWORDBagIt = invenio_sword.packaging:SWORDBagItPackaging",
+        ],
+        "invenio_sword.metadata": [
+            "http://purl.org/net/sword/3.0/types/Metadata = invenio_sword.metadata:SWORDMetadata",
         ],
     },
     install_requires=install_requires,
