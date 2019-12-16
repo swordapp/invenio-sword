@@ -49,6 +49,20 @@ def test_put_metadata_document_without_body(api, location):
         assert response.status_code == http.client.BAD_REQUEST
 
 
+def test_put_metadata_document_invalid_json(api, location):
+    with api.test_client() as client:
+        record = SWORDDeposit.create({})
+
+        response = client.put(
+            "/sword/deposit/{}/metadata".format(record.pid.pid_value),
+            headers={
+                "Content-Type": "application/ld+json",
+                "Metadata-Format": "http://purl.org/net/sword/3.0/types/Metadata",
+            },
+        )
+        assert response.status_code == http.client.BAD_REQUEST
+
+
 def test_put_metadata_document(api, location):
     with api.app_context(), api.test_client() as client:
         record = SWORDDeposit.create({})

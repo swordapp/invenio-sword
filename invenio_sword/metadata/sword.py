@@ -7,6 +7,7 @@ import uuid
 
 import rdflib
 from rdflib.namespace import DC
+from werkzeug.exceptions import BadRequest
 from werkzeug.exceptions import UnsupportedMediaType
 
 from .base import JSONMetadata
@@ -31,7 +32,10 @@ class SWORDMetadata(JSONMetadata):
         if content_type != cls.content_type:
             raise UnsupportedMediaType
         if isinstance(document, (typing.BinaryIO, io.IOBase)):
-            data = json.load(document, encoding=encoding)
+            try:
+                data = json.load(document, encoding=encoding)
+            except json.JSONDecodeError as e:
+                raise BadRequest("Unable to parse JSON") from e
         else:
             data = document
         data.pop("@id", None)
