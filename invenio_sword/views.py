@@ -148,6 +148,12 @@ class DepositFilesetView(ContentNegotiatedMethodView):
         raise NotImplementedError
 
 
+class DepositFileView(ContentNegotiatedMethodView):
+    @pass_record
+    def get(self, pid, record: SWORDDeposit, file_id: str):
+        raise NotImplementedError
+
+
 _PID = 'pid(depid,record_class="invenio_sword.api:SWORDDeposit")'
 
 
@@ -183,6 +189,14 @@ def create_blueprint(prefix="/sword"):
         prefix + "/deposit/<{}:pid_value>/fileset".format(_PID),
         endpoint="deposit-fileset",
         view_func=DepositFilesetView.as_view(
+            "service",
+            serializers={"application/ld+json": serializers.jsonld_serializer,},
+        ),
+    )
+    blueprint.add_url_rule(
+        prefix + "/deposit/<{}:pid_value>/file/<string:file_id>".format(_PID),
+        endpoint="deposit-file",
+        view_func=DepositFileView.as_view(
             "service",
             serializers={"application/ld+json": serializers.jsonld_serializer,},
         ),
