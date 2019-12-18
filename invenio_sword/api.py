@@ -13,7 +13,7 @@ from invenio_pidstore.resolver import Resolver
 from invenio_records_files.api import FileObject
 
 if TYPE_CHECKING:
-    from .metadata import Metadata
+    from .metadata import Metadata  # pragma: nocover
 
 
 logger = logging.getLogger(__name__)

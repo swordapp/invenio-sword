@@ -145,13 +145,13 @@ class DepositMetadataView(ContentNegotiatedMethodView):
 class DepositFilesetView(ContentNegotiatedMethodView):
     @pass_record
     def get(self, pid, record: SWORDDeposit):
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: nocover
 
 
 class DepositFileView(ContentNegotiatedMethodView):
     @pass_record
     def get(self, pid, record: SWORDDeposit, file_id: str):
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: nocover
 
 
 _PID = 'pid(depid,record_class="invenio_sword.api:SWORDDeposit")'
