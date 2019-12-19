@@ -8,16 +8,39 @@ from typing import TYPE_CHECKING
 from flask import current_app
 from flask import url_for
 from invenio_deposit.api import Deposit
+from invenio_files_rest.models import FileInstance
 from invenio_pidstore.resolver import Resolver
+from invenio_records_files.api import FileObject
 
 if TYPE_CHECKING:
-    from .metadata import Metadata
+    from .metadata import Metadata  # pragma: nocover
 
 
 logger = logging.getLogger(__name__)
 
 
+class SWORDFileObject(FileObject):
+    obj: FileInstance
+
+    def __init__(self, *args, record_pid_value: str, **kwargs):
+        self.record_pid_value = record_pid_value
+        return super().__init__(*args, **kwargs)
+
+    @property
+    def sword_file_url(self):
+        return url_for(
+            "invenio_sword.deposit-file",
+            pid_value=self.record_pid_value,
+            file_id=self.obj.file_id,
+            _external=True,
+        )
+
+
 class SWORDDeposit(Deposit):
+    @property
+    def file_cls(self):
+        return functools.partial(SWORDFileObject, record_pid_value=self.pid.pid_value)
+
     def get_status_as_jsonld(self):
         return {
             "@type": "Status",
@@ -36,6 +59,15 @@ class SWORDDeposit(Deposit):
                 "deleteFiles": True,
                 "deleteObject": True,
             },
+            "links": [
+                {
+                    "@id": file.sword_file_url,
+                    "rel": ["http://purl.org/net/sword/3.0/terms/fileSetFile"],
+                    "contentType": file.obj.mimetype,
+                    "status": "http://purl.org/net/sword/3.0/filestate/ingested",
+                }
+                for file in self.files
+            ],
         }
 
     @property
