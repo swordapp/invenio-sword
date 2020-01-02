@@ -15,7 +15,7 @@ class InvenioSword(object):
                 app.config.setdefault(k, getattr(config, k))
 
     def init_app(self, app):
-        app.register_blueprint(views.create_blueprint())
+        app.register_blueprint(views.create_blueprint(app.config["SWORD_ENDPOINTS"]))
 
 
 class InvenioSwordWellKnown(object):

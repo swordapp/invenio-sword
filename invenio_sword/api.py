@@ -29,9 +29,9 @@ class SWORDFileObject(FileObject):
     @property
     def sword_file_url(self):
         return url_for(
-            "invenio_sword.deposit-file",
+            "invenio_deposit_rest.depid_file",
             pid_value=self.record_pid_value,
-            file_id=self.obj.file_id,
+            key=self.obj.key,
             _external=True,
         )
 
@@ -85,13 +85,15 @@ class SWORDDeposit(Deposit):
     @property
     def sword_status_url(self):
         return url_for(
-            "invenio_sword.deposit-status", pid_value=self.pid.pid_value, _external=True
+            "invenio_sword.{}_deposit_status".format(self.pid.pid_type),
+            pid_value=self.pid.pid_value,
+            _external=True,
         )
 
     @property
     def sword_metadata_url(self):
         return url_for(
-            "invenio_sword.deposit-metadata",
+            "invenio_sword.{}_deposit_metadata".format(self.pid.pid_type),
             pid_value=self.pid.pid_value,
             _external=True,
         )
@@ -99,7 +101,7 @@ class SWORDDeposit(Deposit):
     @property
     def sword_fileset_url(self):
         return url_for(
-            "invenio_sword.deposit-fileset",
+            "invenio_sword.{}_deposit_fileset".format(self.pid.pid_type),
             pid_value=self.pid.pid_value,
             _external=True,
         )
