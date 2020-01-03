@@ -70,7 +70,7 @@ before_install:
 
 install:
   - pip install tox-travis pre-commit pytest pytest-cov codecov
-  - pip install elasticsearch invenio-access invenio-search flask-oauthlib elasticsearch-dsl
+  - pip install elasticsearch invenio-access invenio-search flask-oauthlib elasticsearch-dsl invenio-app
   - pip install -e .[$EXTRAS]
 
 before_script:
