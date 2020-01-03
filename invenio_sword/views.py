@@ -1,4 +1,6 @@
 import http.client
+from copy import deepcopy
+from functools import partial
 
 from flask import Blueprint
 from flask import current_app
@@ -6,6 +8,9 @@ from flask import redirect
 from flask import request
 from flask import Response
 from invenio_db import db
+from invenio_deposit.search import DepositSearch
+from invenio_deposit.views.rest import create_error_handlers
+from invenio_records_rest.utils import obj_or_import_string
 from invenio_records_rest.views import pass_record
 from invenio_rest import ContentNegotiatedMethodView
 from werkzeug.exceptions import BadRequest
@@ -19,7 +24,25 @@ from invenio_sword.metadata import JSONMetadata
 from invenio_sword.metadata import Metadata
 
 
-class ServiceDocumentView(ContentNegotiatedMethodView):
+class SWORDDepositView(ContentNegotiatedMethodView):
+    view_name: str
+    record_class: type
+
+    def __init__(self, serializers, ctx, *args, **kwargs):
+        """Constructor."""
+        super(SWORDDepositView, self).__init__(
+            serializers,
+            default_media_type=ctx.get("default_media_type"),
+            *args,
+            **kwargs
+        )
+        for key, value in ctx.items():
+            setattr(self, key, value)
+
+
+class ServiceDocumentView(SWORDDepositView):
+    view_name = "{}_service_document"
+
     def get(self):
         return {
             "@type": "ServiceDocument",
@@ -99,13 +122,17 @@ class ServiceDocumentView(ContentNegotiatedMethodView):
         return response
 
 
-class DepositStatusView(ContentNegotiatedMethodView):
+class DepositStatusView(SWORDDepositView):
+    view_name = "{}_deposit_status"
+
     @pass_record
     def get(self, pid, record: SWORDDeposit):
         return record.get_status_as_jsonld()
 
 
-class DepositMetadataView(ContentNegotiatedMethodView):
+class DepositMetadataView(SWORDDepositView):
+    view_name = "{}_deposit_metadata"
+
     @pass_record
     def get(self, pid, record: SWORDDeposit):
         sword_metadata = record.sword_metadata
@@ -142,65 +169,101 @@ class DepositMetadataView(ContentNegotiatedMethodView):
         return Response(status=http.client.NO_CONTENT)
 
 
-class DepositFilesetView(ContentNegotiatedMethodView):
+class DepositFilesetView(SWORDDepositView):
+    view_name = "{}_deposit_fileset"
+
     @pass_record
     def get(self, pid, record: SWORDDeposit):
         raise NotImplementedError  # pragma: nocover
 
 
-class DepositFileView(ContentNegotiatedMethodView):
-    @pass_record
-    def get(self, pid, record: SWORDDeposit, file_id: str):
-        raise NotImplementedError  # pragma: nocover
+def create_blueprint(endpoints):
+    """Create Invenio-SWORD blueprint.
 
+    See: :data:`invenio_sword.config.SWORD_ENDPOINTS`.
 
-_PID = 'pid(depid,record_class="invenio_sword.api:SWORDDeposit")'
-
-
-def create_blueprint(prefix="/sword"):
+    :param endpoints: List of endpoints configuration.
+    :returns: The configured blueprint.
+    """
     blueprint = Blueprint("invenio_sword", __name__, url_prefix="",)
+    create_error_handlers(blueprint)
 
-    blueprint.add_url_rule(
-        prefix + "/service-document",
-        endpoint="service-document",
-        view_func=ServiceDocumentView.as_view(
-            "service",
-            serializers={"application/ld+json": serializers.jsonld_serializer,},
-        ),
-    )
+    for endpoint, options in (endpoints or {}).items():
+        options = deepcopy(options)
 
-    blueprint.add_url_rule(
-        prefix + "/deposit/<{}:pid_value>".format(_PID),
-        endpoint="deposit-status",
-        view_func=DepositStatusView.as_view(
-            "service",
-            serializers={"application/ld+json": serializers.jsonld_serializer,},
-        ),
-    )
-    blueprint.add_url_rule(
-        prefix + "/deposit/<{}:pid_value>/metadata".format(_PID),
-        endpoint="deposit-metadata",
-        view_func=DepositMetadataView.as_view(
-            "service",
-            serializers={"application/ld+json": serializers.jsonld_serializer,},
-        ),
-    )
-    blueprint.add_url_rule(
-        prefix + "/deposit/<{}:pid_value>/fileset".format(_PID),
-        endpoint="deposit-fileset",
-        view_func=DepositFilesetView.as_view(
-            "service",
-            serializers={"application/ld+json": serializers.jsonld_serializer,},
-        ),
-    )
-    blueprint.add_url_rule(
-        prefix + "/deposit/<{}:pid_value>/file/<string:file_id>".format(_PID),
-        endpoint="deposit-file",
-        view_func=DepositFileView.as_view(
-            "service",
-            serializers={"application/ld+json": serializers.jsonld_serializer,},
-        ),
-    )
+        options.setdefault("search_class", DepositSearch)
+        search_class = obj_or_import_string(options["search_class"])
+
+        # records rest endpoints will use the deposit class as record class
+        options.setdefault("record_class", SWORDDeposit)
+        record_class = obj_or_import_string(options["record_class"])
+
+        # backward compatibility for indexer class
+        options.setdefault("indexer_class", None)
+
+        search_class_kwargs = {}
+        if options.get("search_index"):
+            search_class_kwargs["index"] = options["search_index"]
+
+        if options.get("search_type"):
+            search_class_kwargs["doc_type"] = options["search_type"]
+
+        ctx = dict(
+            read_permission_factory=obj_or_import_string(
+                options.get("read_permission_factory_imp")
+            ),
+            create_permission_factory=obj_or_import_string(
+                options.get("create_permission_factory_imp")
+            ),
+            update_permission_factory=obj_or_import_string(
+                options.get("update_permission_factory_imp")
+            ),
+            delete_permission_factory=obj_or_import_string(
+                options.get("delete_permission_factory_imp")
+            ),
+            record_class=record_class,
+            search_class=partial(search_class, **search_class_kwargs),
+            default_media_type=options.get("default_media_type"),
+        )
+
+        blueprint.add_url_rule(
+            options["service_document_route"],
+            endpoint="service-document",
+            view_func=ServiceDocumentView.as_view(
+                "service",
+                serializers={"application/ld+json": serializers.jsonld_serializer,},
+                ctx=ctx,
+            ),
+        )
+
+        blueprint.add_url_rule(
+            options["deposit_status_route"],
+            endpoint=DepositStatusView.view_name.format(endpoint),
+            view_func=DepositStatusView.as_view(
+                "service",
+                serializers={"application/ld+json": serializers.jsonld_serializer,},
+                ctx=ctx,
+            ),
+        )
+        blueprint.add_url_rule(
+            options["deposit_metadata_route"],
+            endpoint=DepositMetadataView.view_name.format(endpoint),
+            view_func=DepositMetadataView.as_view(
+                "service",
+                serializers={"application/ld+json": serializers.jsonld_serializer,},
+                ctx=ctx,
+            ),
+        )
+        blueprint.add_url_rule(
+            options["deposit_fileset_route"],
+            endpoint=DepositFilesetView.view_name.format(endpoint),
+            view_func=DepositFilesetView.as_view(
+                "service",
+                serializers={"application/ld+json": serializers.jsonld_serializer,},
+                ctx=ctx,
+            ),
+        )
+
     return blueprint
 
 
