@@ -11,7 +11,9 @@ from invenio_db import db
 from invenio_deposit.search import DepositSearch
 from invenio_deposit.views.rest import create_error_handlers
 from invenio_records_rest.utils import obj_or_import_string
+from invenio_records_rest.views import need_record_permission
 from invenio_records_rest.views import pass_record
+from invenio_records_rest.views import verify_record_permission
 from invenio_rest import ContentNegotiatedMethodView
 from werkzeug.exceptions import BadRequest
 from werkzeug.exceptions import NotFound
@@ -56,7 +58,8 @@ class ServiceDocumentView(SWORDDepositView):
             "acceptMetadata": sorted(current_app.config["SWORD_METADATA_FORMATS"]),
         }
 
-    def post(self):
+    @need_record_permission("create_permission_factory")
+    def post(self, **kwargs):
         content_disposition, content_disposition_options = parse_options_header(
             request.headers.get("Content-Disposition", "")
         )
@@ -78,6 +81,11 @@ class ServiceDocumentView(SWORDDepositView):
         # print(request.files)
         record = SWORDDeposit.create({"metadata": {}, "swordMetadata": {},})
         record["_deposit"]["status"] = "draft" if in_progress else "published"
+
+        # Check permissions
+        permission_factory = self.create_permission_factory
+        if permission_factory:
+            verify_record_permission(permission_factory, record)
 
         metadata_deposit = content_disposition_options.get("metadata") == "true"
         by_reference_deposit = content_disposition_options.get("by-reference") == "true"
@@ -126,6 +134,7 @@ class DepositStatusView(SWORDDepositView):
     view_name = "{}_deposit_status"
 
     @pass_record
+    @need_record_permission("read_permission_factory")
     def get(self, pid, record: SWORDDeposit):
         return record.get_status_as_jsonld()
 
@@ -134,6 +143,7 @@ class DepositMetadataView(SWORDDepositView):
     view_name = "{}_deposit_metadata"
 
     @pass_record
+    @need_record_permission("read_permission_factory")
     def get(self, pid, record: SWORDDeposit):
         sword_metadata = record.sword_metadata
         if not sword_metadata:
@@ -146,6 +156,7 @@ class DepositMetadataView(SWORDDepositView):
         return response
 
     @pass_record
+    @need_record_permission("update_permission_factory")
     def put(self, pid, record: SWORDDeposit):
         metadata_format = request.headers.get("Metadata-Format")
         if not metadata_format:
@@ -162,6 +173,7 @@ class DepositMetadataView(SWORDDepositView):
         return Response(status=http.client.NO_CONTENT)
 
     @pass_record
+    @need_record_permission("delete_permission_factory")
     def delete(self, pid, record: SWORDDeposit):
         record.sword_metadata = None
         record.commit()
@@ -173,6 +185,7 @@ class DepositFilesetView(SWORDDepositView):
     view_name = "{}_deposit_fileset"
 
     @pass_record
+    @need_record_permission("read_permission_factory")
     def get(self, pid, record: SWORDDeposit):
         raise NotImplementedError  # pragma: nocover
 

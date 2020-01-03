@@ -56,7 +56,7 @@ env:
     - ES7_DOWNLOAD_URL="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.3.0-linux-x86_64.tar.gz"
   matrix:
 #    - EXTRAS=all,elasticsearch5 ES_URL=$ES5_DOWNLOAD_URL
-    - EXTRAS=all,elasticsearch6 ES_URL=$ES6_DOWNLOAD_URL
+#    - EXTRAS=all,elasticsearch6 ES_URL=$ES6_DOWNLOAD_URL
     - EXTRAS=all,elasticsearch7 ES_URL=$ES7_DOWNLOAD_URL
 
 python:
@@ -70,7 +70,7 @@ before_install:
 
 install:
   - pip install tox-travis pre-commit pytest pytest-cov codecov
-  - pip install elasticsearch invenio-access invenio-search flask-oauthlib elasticsearch-dsl
+  - pip install elasticsearch invenio-access invenio-search flask-oauthlib elasticsearch-dsl invenio-app
   - pip install -e .[$EXTRAS]
 
 before_script:
