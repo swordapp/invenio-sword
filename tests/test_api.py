@@ -25,6 +25,8 @@
 import http.client
 import re
 
+from flask_security import url_for_security
+
 from invenio_sword.api import pid_resolver
 
 
@@ -35,8 +37,13 @@ def test_get_service_document(api):
         assert response.is_json
 
 
-def test_metadata_deposit_empty(api, location):
-    with api.test_client() as client:
+def test_metadata_deposit_empty(api, users, location):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
+
         response = client.post("/sword/service-document")
         assert response.status_code == http.client.CREATED
         match = re.match(
@@ -49,6 +56,11 @@ def test_metadata_deposit_empty(api, location):
             "metadata": {},
             "swordMetadata": {},
             "$schema": "http://localhost/schemas/deposits/deposit-v1.0.0.json",
-            "_deposit": {"id": pid_value, "status": "published", "owners": []},
+            "_deposit": {
+                "id": pid_value,
+                "status": "published",
+                "owners": [users[0]["id"]],
+                "created_by": users[0]["id"],
+            },
             "_bucket": record.bucket_id,
         }

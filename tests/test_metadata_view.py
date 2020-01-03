@@ -1,18 +1,29 @@
 import http.client
 import json
+import time
 
+from flask_security import url_for_security
 from invenio_db import db
 
 from invenio_sword.api import SWORDDeposit
 from invenio_sword.metadata import SWORDMetadata
 
 
-def test_get_metadata_document(api, location):
-    with api.app_context(), api.test_client() as client:
+def test_get_metadata_document(api, users, location, es):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
+
         record = SWORDDeposit.create({})
         record.sword_metadata = SWORDMetadata({"dc:title": "Deposit title"})
         record.commit()
         db.session.commit()
+        time.sleep(1)
+
+        response = client.get("/sword/deposit/{}".format(record.pid.pid_value))
+        assert response.status_code == 200
 
         response = client.get("/sword/deposit/{}/metadata".format(record.pid.pid_value))
         assert response.status_code == 200
@@ -29,9 +40,16 @@ def test_get_metadata_document(api, location):
         }
 
 
-def test_get_metadata_document_when_not_available(api, location):
-    with api.app_context(), api.test_client() as client:
+def test_get_metadata_document_when_not_available(api, users, location, es):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
         record = SWORDDeposit.create({})
+        record.commit()
+        db.session.commit()
+        time.sleep(1)
 
         status_response = client.get("/sword/deposit/{}".format(record.pid.pid_value))
         assert status_response.status_code == http.client.OK
@@ -41,17 +59,31 @@ def test_get_metadata_document_when_not_available(api, location):
         assert status_response.status_code == http.client.NOT_FOUND
 
 
-def test_put_metadata_document_without_body(api, location):
-    with api.test_client() as client:
+def test_put_metadata_document_without_body(api, users, location, es):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
         record = SWORDDeposit.create({})
+        record.commit()
+        db.session.commit()
+        time.sleep(1)
 
         response = client.put("/sword/deposit/{}/metadata".format(record.pid.pid_value))
         assert response.status_code == http.client.BAD_REQUEST
 
 
-def test_put_metadata_document_invalid_json(api, location):
-    with api.test_client() as client:
+def test_put_metadata_document_invalid_json(api, users, location, es):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
         record = SWORDDeposit.create({})
+        record.commit()
+        db.session.commit()
+        time.sleep(1)
 
         response = client.put(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value),
@@ -63,10 +95,16 @@ def test_put_metadata_document_invalid_json(api, location):
         assert response.status_code == http.client.BAD_REQUEST
 
 
-def test_put_metadata_document(api, location):
-    with api.app_context(), api.test_client() as client:
+def test_put_metadata_document(api, users, location, es):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
         record = SWORDDeposit.create({})
         record.commit()
+        db.session.commit()
+        time.sleep(1)
 
         response = client.put(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value),
@@ -87,9 +125,16 @@ def test_put_metadata_document(api, location):
         assert record.sword_metadata.data == {}
 
 
-def test_put_metadata_document_with_unsupported_format(api, location):
-    with api.app_context(), api.test_client() as client:
+def test_put_metadata_document_with_unsupported_format(api, users, location, es):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
         record = SWORDDeposit.create({})
+        record.commit()
+        db.session.commit()
+        time.sleep(1)
 
         response = client.put(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value),
@@ -102,11 +147,17 @@ def test_put_metadata_document_with_unsupported_format(api, location):
         assert response.status_code == http.client.NOT_IMPLEMENTED
 
 
-def test_delete_metadata_document(api, location):
-    with api.app_context(), api.test_client() as client:
+def test_delete_metadata_document(api, users, location, es):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
         record = SWORDDeposit.create({})
         record.sword_metadata = SWORDMetadata({"dc:title": "Deposit title"})
         record.commit()
+        db.session.commit()
+        time.sleep(1)
 
         assert record.sword_metadata_format is not None
         assert record.sword_metadata is not None
