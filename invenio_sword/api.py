@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from flask import current_app
 from flask import url_for
 from invenio_deposit.api import Deposit
-from invenio_files_rest.models import FileInstance
 from invenio_pidstore.resolver import Resolver
 from invenio_records_files.api import FileObject
 
@@ -20,26 +19,18 @@ logger = logging.getLogger(__name__)
 
 
 class SWORDFileObject(FileObject):
-    obj: FileInstance
-
-    def __init__(self, *args, record_pid_value: str, **kwargs):
-        self.record_pid_value = record_pid_value
-        return super().__init__(*args, **kwargs)
-
     @property
-    def sword_file_url(self):
+    def rest_file_url(self):
         return url_for(
-            "invenio_deposit_rest.depid_file",
-            pid_value=self.record_pid_value,
-            key=self.obj.key,
+            "invenio_files_rest.object_api",
+            bucket_id=self.bucket.id,
+            key=self.key,
             _external=True,
         )
 
 
 class SWORDDeposit(Deposit):
-    @property
-    def file_cls(self):
-        return functools.partial(SWORDFileObject, record_pid_value=self.pid.pid_value)
+    file_cls = SWORDFileObject
 
     def get_status_as_jsonld(self):
         return {
@@ -61,7 +52,7 @@ class SWORDDeposit(Deposit):
             },
             "links": [
                 {
-                    "@id": file.sword_file_url,
+                    "@id": file.rest_file_url,
                     "rel": ["http://purl.org/net/sword/3.0/terms/fileSetFile"],
                     "contentType": file.obj.mimetype,
                     "status": "http://purl.org/net/sword/3.0/filestate/ingested",
