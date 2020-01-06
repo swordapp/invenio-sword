@@ -54,6 +54,7 @@ from invenio_deposit.api import Deposit
 from invenio_deposit.scopes import write_scope
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location
+from invenio_files_rest.views import blueprint as invenio_files_rest_blueprint
 from invenio_indexer import InvenioIndexer
 from invenio_jsonschemas import InvenioJSONSchemas
 from invenio_oauth2server import InvenioOAuth2Server
@@ -147,6 +148,7 @@ def base_app(request):
     InvenioOAuth2ServerREST(api_app)
     InvenioRecordsREST(api_app)
     InvenioSword(api_app)
+    api_app.register_blueprint(invenio_files_rest_blueprint)
 
     app = Flask("testapp", instance_path=instance_path)
     app.url_map.converters["pid"] = PIDConverter
