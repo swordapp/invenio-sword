@@ -40,6 +40,7 @@ setup_requires = [
 ]
 
 install_requires = [
+    "bagit",
     "Flask-BabelEx>=0.9.3",
     "Flask-Login>=0.3.2",
     "Flask>=0.11.1",
