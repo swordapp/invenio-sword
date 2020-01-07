@@ -91,8 +91,17 @@ def test_post_service_document_with_bagit_bag(api, users, location):
         }
 
 
-@pytest.mark.parametrize("filename", ["bagit-broken-sha.zip", "bagit-no-bagit-txt.zip"])
-def test_post_service_document_with_broken_bag(api, users, location, filename):
+@pytest.mark.parametrize(
+    "filename,status_code",
+    [
+        ("bagit-broken-sha.zip", http.client.BAD_REQUEST),
+        ("bagit-no-bagit-txt.zip", http.client.BAD_REQUEST),
+        ("bagit-with-fetch.zip", http.client.NOT_IMPLEMENTED),
+    ],
+)
+def test_post_service_document_with_broken_bag(
+    api, users, location, filename, status_code
+):
     with api.test_request_context(), api.test_client() as client:
         client.post(
             url_for_security("login"),
@@ -109,7 +118,7 @@ def test_post_service_document_with_broken_bag(api, users, location, filename):
                 },
             )
 
-        assert response.status_code == http.client.BAD_REQUEST
+        assert response.status_code == status_code
 
 
 def test_post_service_document_with_incorrect_content_type(api, users, location):
