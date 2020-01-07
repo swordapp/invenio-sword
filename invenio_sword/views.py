@@ -242,7 +242,7 @@ def create_blueprint(endpoints):
 
         blueprint.add_url_rule(
             options["service_document_route"],
-            endpoint="service-document",
+            endpoint=ServiceDocumentView.view_name.format(endpoint),
             view_func=ServiceDocumentView.as_view(
                 "service",
                 serializers={"application/ld+json": serializers.jsonld_serializer,},
