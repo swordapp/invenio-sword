@@ -54,6 +54,7 @@ class ServiceDocumentView(SWORDDepositView):
             "version": "http://purl.org/net/sword/3.0",
             "maxUploadSize": current_app.config["SWORD_MAX_UPLOAD_SIZE"],
             "maxByReferenceSize": current_app.config["SWORD_MAX_BY_REFERENCE_SIZE"],
+            "acceptArchiveFormat": ["application/zip"],
             "acceptPackaging": sorted(current_app.config["SWORD_PACKAGING_FORMATS"]),
             "acceptMetadata": sorted(current_app.config["SWORD_METADATA_FORMATS"]),
         }
