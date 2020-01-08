@@ -37,7 +37,9 @@ class SWORDDeposit(Deposit):
             "@type": "Status",
             "metadata": {"@id": self.sword_metadata_url,},
             "fileSet": {"@id": self.sword_fileset_url,},
-            "service": url_for("invenio_sword.service-document"),
+            "service": url_for(
+                "invenio_sword.{}_service_document".format(self.pid.pid_type)
+            ),
             "state": self.sword_states,
             "actions": {
                 "getMetadata": True,

@@ -5,6 +5,7 @@ import typing
 import zipfile
 
 from invenio_files_rest.models import ObjectVersion
+from werkzeug.exceptions import UnsupportedMediaType
 
 from ..api import SWORDDeposit
 from .base import Packaging
@@ -13,6 +14,8 @@ __all__ = ["SimpleZipPackaging"]
 
 
 class SimpleZipPackaging(Packaging):
+    content_type = "application/zip"
+
     def ingest(
         self,
         *,
@@ -21,6 +24,9 @@ class SimpleZipPackaging(Packaging):
         filename: str = None,
         content_type: str
     ):
+        if content_type != self.content_type:
+            raise UnsupportedMediaType
+
         with tempfile.TemporaryFile() as f:
             shutil.copyfileobj(stream, f)
             f.seek(0)

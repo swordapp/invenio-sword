@@ -54,6 +54,7 @@ class ServiceDocumentView(SWORDDepositView):
             "version": "http://purl.org/net/sword/3.0",
             "maxUploadSize": current_app.config["SWORD_MAX_UPLOAD_SIZE"],
             "maxByReferenceSize": current_app.config["SWORD_MAX_BY_REFERENCE_SIZE"],
+            "acceptArchiveFormat": ["application/zip"],
             "acceptPackaging": sorted(current_app.config["SWORD_PACKAGING_FORMATS"]),
             "acceptMetadata": sorted(current_app.config["SWORD_METADATA_FORMATS"]),
         }
@@ -241,7 +242,7 @@ def create_blueprint(endpoints):
 
         blueprint.add_url_rule(
             options["service_document_route"],
-            endpoint="service-document",
+            endpoint=ServiceDocumentView.view_name.format(endpoint),
             view_func=ServiceDocumentView.as_view(
                 "service",
                 serializers={"application/ld+json": serializers.jsonld_serializer,},
