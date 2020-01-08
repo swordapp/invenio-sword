@@ -71,7 +71,7 @@ def test_put_metadata_document_without_body(api, users, location, es):
         time.sleep(1)
 
         response = client.put("/sword/deposit/{}/metadata".format(record.pid.pid_value))
-        assert response.status_code == http.client.BAD_REQUEST
+        assert response.status_code == http.client.UNSUPPORTED_MEDIA_TYPE
 
 
 def test_put_metadata_document_invalid_json(api, users, location, es):

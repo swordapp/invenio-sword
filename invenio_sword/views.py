@@ -19,11 +19,11 @@ from werkzeug.exceptions import BadRequest
 from werkzeug.exceptions import NotFound
 from werkzeug.exceptions import NotImplemented
 from werkzeug.http import parse_options_header
+from werkzeug.utils import cached_property
 
 from . import serializers
 from .api import SWORDDeposit
 from invenio_sword.metadata import JSONMetadata
-from invenio_sword.metadata import Metadata
 
 
 class SWORDDepositView(ContentNegotiatedMethodView):
@@ -40,6 +40,51 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         )
         for key, value in ctx.items():
             setattr(self, key, value)
+
+    @cached_property
+    def metadata_class(self):
+        metadata_format = request.headers.get(
+            "Metadata-Format", current_app.config["SWORD_DEFAULT_METADATA_FORMAT"]
+        )
+        try:
+            return current_app.config["SWORD_METADATA_FORMATS"][metadata_format]
+        except KeyError as e:
+            raise NotImplemented(  # noqa: F901
+                "Unsupported Metadata-Format header value"
+            ) from e
+
+    @cached_property
+    def packaging_class(self):
+        packaging = request.headers.get(
+            "Packaging", current_app.config["SWORD_DEFAULT_PACKAGING_FORMAT"]
+        )
+        try:
+            return current_app.config["SWORD_PACKAGING_FORMATS"][packaging]
+        except KeyError as e:
+            raise NotImplemented(  # noqa: F901
+                "Unsupported Packaging header value"
+            ) from e
+
+    def create_deposit(self):
+        in_progress = request.headers.get("In-Progress") == "true"
+        record = SWORDDeposit.create({"metadata": {}, "swordMetadata": {},})
+        record["_deposit"]["status"] = "draft" if in_progress else "published"
+
+    def set_metadata_from_stream(self, record, stream):
+        record.sword_metadata = self.metadata_class.from_document(
+            stream,
+            content_type=request.content_type,
+            encoding=request.content_encoding,
+        )
+
+    def set_metadata_from_json(self, record, data):
+        if not isinstance(self.metadata_class, JSONMetadata):
+            raise BadRequest(
+                "Metadata-Format must be JSON-based to use Metadata+By-Reference deposit"
+            )
+        record.sword_metadata = self.metadata_class.from_document(
+            data, content_type=self.metadata_class.content_type
+        )
 
 
 class ServiceDocumentView(SWORDDepositView):
@@ -67,17 +112,6 @@ class ServiceDocumentView(SWORDDepositView):
         content_type, _ = parse_options_header(request.content_type)
         filename = content_disposition_options.get("filename")
         in_progress = request.headers.get("In-Progress") == "true"
-        packaging = request.headers.get(
-            "Packaging", current_app.config["SWORD_DEFAULT_PACKAGING_FORMAT"]
-        )
-        metadata_format = request.headers.get(
-            "Metadata-Format", current_app.config["SWORD_DEFAULT_METADATA_FORMAT"]
-        )
-
-        try:
-            packaging = current_app.config["SWORD_PACKAGING_FORMATS"][packaging]()
-        except KeyError:
-            raise BadRequest("Unexpected packaging format")
 
         # print(request.files)
         record = SWORDDeposit.create({"metadata": {}, "swordMetadata": {},})
@@ -92,30 +126,17 @@ class ServiceDocumentView(SWORDDepositView):
         by_reference_deposit = content_disposition_options.get("by-reference") == "true"
 
         if metadata_deposit:
-            metadata_cls: Metadata = current_app.config["SWORD_METADATA_FORMATS"][
-                metadata_format
-            ]
             if by_reference_deposit:
-                if not isinstance(metadata_cls, JSONMetadata):
-                    raise BadRequest(
-                        "Metadata-Format must be JSON-based to use Metadata+By-Reference deposit"
-                    )
-                record.sword_metadata = metadata_cls.from_document(
-                    request.json["metadata"], content_type=metadata_cls.content_type
-                )
+                self.set_metadata_from_json(record, request.json["metadata"])
             else:
-                record.sword_metadata = metadata_cls.from_document(
-                    request.stream,
-                    content_type=request.content_type,
-                    encoding=request.content_encoding,
-                )
+                self.set_metadata_from_stream(record, request.stream)
 
         if by_reference_deposit:
             # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
             raise NotImplemented  # noqa: F901
 
         if not (metadata_deposit or by_reference_deposit):
-            packaging.ingest(
+            self.packaging_class().ingest(
                 record=record,
                 stream=request.stream,
                 filename=filename,
@@ -159,16 +180,7 @@ class DepositMetadataView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def put(self, pid, record: SWORDDeposit):
-        metadata_format = request.headers.get("Metadata-Format")
-        if not metadata_format:
-            raise BadRequest("Missing Metadata-Format header")
-        try:
-            metadata_cls = current_app.config["SWORD_METADATA_FORMATS"][metadata_format]
-        except KeyError:
-            raise NotImplemented  # noqa: F901
-        record.sword_metadata = metadata_cls.from_document(
-            request.stream, content_type=request.content_type
-        )
+        self.set_metadata_from_stream(record, request.stream)
         record.commit()
         db.session.commit()
         return Response(status=http.client.NO_CONTENT)

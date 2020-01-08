@@ -30,7 +30,9 @@ class SWORDMetadata(JSONMetadata):
         encoding: str = "utf_8",
     ) -> SWORDMetadata:
         if content_type != cls.content_type:
-            raise UnsupportedMediaType
+            raise UnsupportedMediaType(
+                "Content-Type must be {}".format(cls.content_type)
+            )
         if isinstance(document, (typing.BinaryIO, io.IOBase)):
             try:
                 data = json.load(document, encoding=encoding)
