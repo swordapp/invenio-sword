@@ -66,10 +66,11 @@ class SWORDDepositView(ContentNegotiatedMethodView):
                 "Unsupported Packaging header value"
             ) from e
 
-    def create_deposit(self):
+    def create_deposit(self) -> SWORDDeposit:
         in_progress = request.headers.get("In-Progress") == "true"
         record = SWORDDeposit.create({"metadata": {}, "swordMetadata": {},})
         record["_deposit"]["status"] = "draft" if in_progress else "published"
+        return record
 
     def set_metadata_from_stream(self, record, stream):
         record.sword_metadata = self.metadata_class.from_document(
@@ -128,11 +129,8 @@ class ServiceDocumentView(SWORDDepositView):
         content_disposition, content_disposition_options = parse_options_header(
             request.headers.get("Content-Disposition", "")
         )
-        in_progress = request.headers.get("In-Progress") == "true"
 
-        # print(request.files)
-        record = SWORDDeposit.create({"metadata": {}, "swordMetadata": {},})
-        record["_deposit"]["status"] = "draft" if in_progress else "published"
+        record = self.create_deposit()
 
         # Check permissions
         permission_factory = self.create_permission_factory
