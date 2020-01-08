@@ -217,9 +217,10 @@ class DepositFilesetView(SWORDDepositView):
     view_name = "{}_deposit_fileset"
 
     @pass_record
-    @need_record_permission("read_permission_factory")
-    def get(self, pid, record: SWORDDeposit):
-        raise NotImplementedError  # pragma: nocover
+    @need_record_permission("update_permission_factory")
+    def put(self, pid, record: SWORDDeposit):
+        self.set_fileset_from_stream(record, request.stream)
+        return Response(status=http.client.NO_CONTENT)
 
 
 def create_blueprint(endpoints):
