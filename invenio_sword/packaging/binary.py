@@ -28,3 +28,5 @@ class BinaryPackaging(Packaging):
         ObjectVersion.create(
             record.bucket, filename, mimetype=content_type, stream=stream
         )
+
+        return {filename}

@@ -10,6 +10,7 @@ from flask import Response
 from invenio_db import db
 from invenio_deposit.search import DepositSearch
 from invenio_deposit.views.rest import create_error_handlers
+from invenio_files_rest.models import ObjectVersion
 from invenio_records_rest.utils import obj_or_import_string
 from invenio_records_rest.views import need_record_permission
 from invenio_records_rest.views import pass_record
@@ -86,6 +87,24 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             data, content_type=self.metadata_class.content_type
         )
 
+    def set_fileset_from_stream(self, record, stream):
+        content_disposition, content_disposition_options = parse_options_header(
+            request.headers.get("Content-Disposition", "")
+        )
+        content_type, _ = parse_options_header(request.content_type)
+        filename = content_disposition_options.get("filename")
+        ingested_keys = self.packaging_class().ingest(
+            record=record,
+            stream=request.stream,
+            filename=filename,
+            content_type=content_type,
+        )
+        # Remove previous objects
+        for object_version in ObjectVersion.query.filter_by(
+            bucket=record.bucket
+        ).filter(ObjectVersion.key.notin_(ingested_keys)):
+            ObjectVersion.delete(record.bucket, object_version.key)
+
 
 class ServiceDocumentView(SWORDDepositView):
     view_name = "{}_service_document"
@@ -109,8 +128,6 @@ class ServiceDocumentView(SWORDDepositView):
         content_disposition, content_disposition_options = parse_options_header(
             request.headers.get("Content-Disposition", "")
         )
-        content_type, _ = parse_options_header(request.content_type)
-        filename = content_disposition_options.get("filename")
         in_progress = request.headers.get("In-Progress") == "true"
 
         # print(request.files)
@@ -136,12 +153,7 @@ class ServiceDocumentView(SWORDDepositView):
             raise NotImplemented  # noqa: F901
 
         if not (metadata_deposit or by_reference_deposit):
-            self.packaging_class().ingest(
-                record=record,
-                stream=request.stream,
-                filename=filename,
-                content_type=content_type,
-            )
+            self.set_fileset_from_stream(record, request.stream)
 
         record.commit()
         db.session.commit()

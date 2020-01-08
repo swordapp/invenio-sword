@@ -71,7 +71,9 @@ class SWORDBagItPackaging(Packaging):
                             mimetype=mimetypes.guess_type(name)[0],
                             stream=payload_f,
                         )
-
+                return {
+                    name.split(os.path.sep, 1)[-1] for name in bag.payload_entries()
+                }
             except bagit.BagValidationError as e:
                 raise BadRequest(e.message) from e
             except bagit.BagError as e:
