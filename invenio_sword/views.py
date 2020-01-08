@@ -72,6 +72,30 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         record["_deposit"]["status"] = "draft" if in_progress else "published"
         return record
 
+    def update_deposit(self, record: SWORDDeposit) -> None:
+        content_disposition, content_disposition_options = parse_options_header(
+            request.headers.get("Content-Disposition", "")
+        )
+
+        metadata_deposit = content_disposition_options.get("metadata") == "true"
+        by_reference_deposit = content_disposition_options.get("by-reference") == "true"
+
+        if metadata_deposit:
+            if by_reference_deposit:
+                self.set_metadata_from_json(record, request.json["metadata"])
+            else:
+                self.set_metadata_from_stream(record, request.stream)
+
+        if by_reference_deposit:
+            # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
+            raise NotImplemented  # noqa: F901
+
+        if not (metadata_deposit or by_reference_deposit):
+            self.set_fileset_from_stream(record, request.stream)
+
+        record.commit()
+        db.session.commit()
+
     def set_metadata_from_stream(self, record, stream):
         record.sword_metadata = self.metadata_class.from_document(
             stream,
@@ -126,10 +150,6 @@ class ServiceDocumentView(SWORDDepositView):
 
     @need_record_permission("create_permission_factory")
     def post(self, **kwargs):
-        content_disposition, content_disposition_options = parse_options_header(
-            request.headers.get("Content-Disposition", "")
-        )
-
         record = self.create_deposit()
 
         # Check permissions
@@ -137,24 +157,7 @@ class ServiceDocumentView(SWORDDepositView):
         if permission_factory:
             verify_record_permission(permission_factory, record)
 
-        metadata_deposit = content_disposition_options.get("metadata") == "true"
-        by_reference_deposit = content_disposition_options.get("by-reference") == "true"
-
-        if metadata_deposit:
-            if by_reference_deposit:
-                self.set_metadata_from_json(record, request.json["metadata"])
-            else:
-                self.set_metadata_from_stream(record, request.stream)
-
-        if by_reference_deposit:
-            # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
-            raise NotImplemented  # noqa: F901
-
-        if not (metadata_deposit or by_reference_deposit):
-            self.set_fileset_from_stream(record, request.stream)
-
-        record.commit()
-        db.session.commit()
+        self.update_deposit(record)
 
         response = self.make_response(record.get_status_as_jsonld())  # type: Response
         response.status_code = http.client.CREATED
@@ -168,6 +171,12 @@ class DepositStatusView(SWORDDepositView):
     @pass_record
     @need_record_permission("read_permission_factory")
     def get(self, pid, record: SWORDDeposit):
+        return record.get_status_as_jsonld()
+
+    @pass_record
+    @need_record_permission("update_permission_factory")
+    def put(self, pid, record: SWORDDeposit):
+        self.update_deposit(record)
         return record.get_status_as_jsonld()
 
 
