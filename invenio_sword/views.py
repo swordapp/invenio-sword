@@ -18,6 +18,7 @@ from invenio_records_rest.views import pass_record
 from invenio_records_rest.views import verify_record_permission
 from invenio_rest import ContentNegotiatedMethodView
 from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import Conflict
 from werkzeug.exceptions import NotFound
 from werkzeug.exceptions import NotImplemented
 from werkzeug.http import parse_options_header
@@ -74,7 +75,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         record["_deposit"]["status"] = "draft" if in_progress else "published"
         return record
 
-    def update_deposit(self, record: SWORDDeposit) -> None:
+    def update_deposit(self, record: SWORDDeposit, replace: bool = True) -> None:
         content_disposition, content_disposition_options = parse_options_header(
             request.headers.get("Content-Disposition", "")
         )
@@ -84,9 +85,9 @@ class SWORDDepositView(ContentNegotiatedMethodView):
 
         if metadata_deposit:
             if by_reference_deposit:
-                self.set_metadata(record, request.json["metadata"])
+                self.set_metadata(record, request.json["metadata"], replace=replace)
             else:
-                self.set_metadata(record, request.stream)
+                self.set_metadata(record, request.stream, replace=replace)
 
         if by_reference_deposit:
             # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
@@ -95,15 +96,18 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         if not (metadata_deposit or by_reference_deposit) and (
             request.content_type or request.content_length
         ):
-            self.set_fileset_from_stream(record, request.stream)
+            self.set_fileset_from_stream(record, request.stream, replace=replace)
         else:
-            self.set_fileset_from_stream(record, None)
+            self.set_fileset_from_stream(record, None, replace=replace)
 
         record.commit()
         db.session.commit()
 
     def set_metadata(
-        self, record: SWORDDeposit, source: typing.Union[BytesReader, dict],
+        self,
+        record: SWORDDeposit,
+        source: typing.Union[BytesReader, dict],
+        replace: bool = True,
     ):
         if isinstance(source, dict) and not isinstance(
             self.metadata_class, JSONMetadata
@@ -111,11 +115,19 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             raise BadRequest(
                 "Metadata-Format must be JSON-based to use Metadata+By-Reference deposit"
             )
-        record.sword_metadata = self.metadata_class.from_document(
+        metadata = self.metadata_class.from_document(
             source,
             content_type=request.content_type,
             encoding=request.content_encoding,
         )
+        if not replace and record.sword_metadata:
+            try:
+                metadata = record.sword_metadata + metadata
+            except TypeError:
+                raise Conflict(
+                    "Existing or new metadata is of wrong type for appending. Reconcile client-side and PUT instead"
+                )
+        record.sword_metadata = metadata
 
     def set_fileset_from_stream(
         self, record: SWORDDeposit, stream: typing.Optional[BytesReader], replace=True
@@ -187,6 +199,12 @@ class DepositStatusView(SWORDDepositView):
 
     @pass_record
     @need_record_permission("update_permission_factory")
+    def post(self, pid, record: SWORDDeposit):
+        self.update_deposit(record, replace=False)
+        return record.get_status_as_jsonld()
+
+    @pass_record
+    @need_record_permission("update_permission_factory")
     def put(self, pid, record: SWORDDeposit):
         self.update_deposit(record)
         return record.get_status_as_jsonld()
@@ -207,6 +225,14 @@ class DepositMetadataView(SWORDDepositView):
         )
         response.headers["Metadata-Format"] = record.sword_metadata_format
         return response
+
+    @pass_record
+    @need_record_permission("update_permission_factory")
+    def post(self, pid, record: SWORDDeposit):
+        self.set_metadata(record, request.stream, replace=False)
+        record.commit()
+        db.session.commit()
+        return Response(status=http.client.NO_CONTENT)
 
     @pass_record
     @need_record_permission("update_permission_factory")

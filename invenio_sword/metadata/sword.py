@@ -75,3 +75,8 @@ class SWORDMetadata(JSONMetadata):
 
     def to_document(self, metadata_url):
         return json.dumps({**self.data, "@id": metadata_url}, indent=2)
+
+    def __add__(self, other):
+        if not isinstance(other, SWORDMetadata):
+            return NotImplemented
+        return type(self)({**self.data, **other.data})
