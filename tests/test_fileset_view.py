@@ -53,7 +53,10 @@ def test_put_fileset_url(api, users, location, es):
                 "invenio_sword.depid_deposit_fileset", pid_value=record.pid.pid_value
             ),
             data=b"hello again",
-            headers={"Content-Disposition": "attachment; filename=new-file.txt",},
+            headers={
+                "Content-Disposition": "attachment; filename=new-file.txt",
+                "Content-Type": "text/plain",
+            },
         )
         assert response.status_code == http.client.NO_CONTENT
 

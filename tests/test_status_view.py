@@ -37,3 +37,36 @@ def test_get_status_document(api, users, location, es):
         assert response.status_code == http.client.OK
         assert len(response.json["links"]) == 1
         assert response.json["links"][0]["contentType"] == "text/n3"
+
+
+def test_put_status_document(api, users, location, es):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
+        record = SWORDDeposit.create({})
+        record.commit()
+        db.session.commit()
+        time.sleep(1)
+
+        ObjectVersion.create(
+            record.bucket,
+            "file.n3",
+            mimetype="text/n3",
+            stream=io.BytesIO(b"1 _:a 2 ."),
+        )
+
+        response = client.put(
+            "/sword/deposit/{}".format(record.pid.pid_value), data=b""
+        )
+        assert response.status_code == http.client.OK
+
+        # This should have removed the previous file, as the empty PUT is a reset.
+        object_versions = list(
+            ObjectVersion.query.filter_by(bucket=record.bucket).order_by("created")
+        )
+        assert len(object_versions) == 2
+        assert not object_versions[0].is_head
+        assert object_versions[1].is_head
+        assert object_versions[1].file is None

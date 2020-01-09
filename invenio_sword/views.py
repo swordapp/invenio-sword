@@ -90,8 +90,12 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
             raise NotImplemented  # noqa: F901
 
-        if not (metadata_deposit or by_reference_deposit) and request.content_type:
+        if not (metadata_deposit or by_reference_deposit) and (
+            request.content_type or request.content_length
+        ):
             self.set_fileset_from_stream(record, request.stream)
+        else:
+            self.set_fileset_from_stream(record, None)
 
         record.commit()
         db.session.commit()
@@ -112,18 +116,21 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             data, content_type=self.metadata_class.content_type
         )
 
-    def set_fileset_from_stream(self, record, stream):
-        content_disposition, content_disposition_options = parse_options_header(
-            request.headers.get("Content-Disposition", "")
-        )
-        content_type, _ = parse_options_header(request.content_type)
-        filename = content_disposition_options.get("filename")
-        ingested_keys = self.packaging_class().ingest(
-            record=record,
-            stream=request.stream,
-            filename=filename,
-            content_type=content_type,
-        )
+    def set_fileset_from_stream(self, record: SWORDDeposit, stream):
+        if stream:
+            content_disposition, content_disposition_options = parse_options_header(
+                request.headers.get("Content-Disposition", "")
+            )
+            content_type, _ = parse_options_header(request.content_type)
+            filename = content_disposition_options.get("filename")
+            ingested_keys = self.packaging_class().ingest(
+                record=record,
+                stream=stream,
+                filename=filename,
+                content_type=content_type,
+            )
+        else:
+            ingested_keys = set()
         # Remove previous objects
         for object_version in ObjectVersion.query.filter_by(
             bucket=record.bucket
@@ -219,7 +226,12 @@ class DepositFilesetView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def put(self, pid, record: SWORDDeposit):
-        self.set_fileset_from_stream(record, request.stream)
+        self.set_fileset_from_stream(
+            record,
+            request.stream
+            if (request.content_type or request.content_length)
+            else None,
+        )
         return Response(status=http.client.NO_CONTENT)
 
 
