@@ -107,9 +107,9 @@ class SWORDDeposit(Deposit):
     def sword_metadata(self) -> Optional[Metadata]:
         if self.sword_metadata_format:
             try:
-                metadata_cls = current_app.config["SWORD_METADATA_FORMATS"][
-                    self.sword_metadata_format
-                ]
+                metadata_cls = current_app.config["SWORD_ENDPOINTS"][self.pid.pid_type][
+                    "metadata_formats"
+                ][self.sword_metadata_format]
             except KeyError:
                 logger.warning(
                     "Metadata format for record %s (%s) not supported",
@@ -127,9 +127,9 @@ class SWORDDeposit(Deposit):
             del self["swordMetadataFormat"]
             del self["swordMetadata"]
         else:
-            for metadata_format, metadata_cls in current_app.config[
-                "SWORD_METADATA_FORMATS"
-            ].items():
+            for metadata_format, metadata_cls in current_app.config["SWORD_ENDPOINTS"][
+                self.pid.pid_type
+            ]["metadata_formats"].items():
                 if isinstance(metadata, metadata_cls):
                     break
             else:

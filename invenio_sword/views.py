@@ -47,11 +47,12 @@ class SWORDDepositView(ContentNegotiatedMethodView):
 
     @cached_property
     def metadata_class(self):
+
         metadata_format = request.headers.get(
-            "Metadata-Format", current_app.config["SWORD_DEFAULT_METADATA_FORMAT"]
+            "Metadata-Format", self.endpoint_options["default_metadata_format"]
         )
         try:
-            return current_app.config["SWORD_METADATA_FORMATS"][metadata_format]
+            return self.endpoint_options["metadata_formats"][metadata_format]
         except KeyError as e:
             raise NotImplemented(  # noqa: F901
                 "Unsupported Metadata-Format header value"
@@ -168,8 +169,8 @@ class ServiceDocumentView(SWORDDepositView):
             "maxUploadSize": current_app.config["SWORD_MAX_UPLOAD_SIZE"],
             "maxByReferenceSize": current_app.config["SWORD_MAX_BY_REFERENCE_SIZE"],
             "acceptArchiveFormat": ["application/zip"],
-            "acceptPackaging": sorted(current_app.config["SWORD_PACKAGING_FORMATS"]),
-            "acceptMetadata": sorted(current_app.config["SWORD_METADATA_FORMATS"]),
+            "acceptPackaging": sorted(self.endpoint_options["packaging_formats"]),
+            "acceptMetadata": sorted(self.endpoint_options["metadata_formats"]),
         }
 
     @need_record_permission("create_permission_factory")
@@ -325,6 +326,7 @@ def create_blueprint(endpoints):
             record_class=record_class,
             search_class=partial(search_class, **search_class_kwargs),
             default_media_type=options.get("default_media_type"),
+            endpoint_options=options,
         )
 
         blueprint.add_url_rule(
