@@ -60,6 +60,8 @@ install_requires = [
     "invenio-records-ui>=1.0.1",
     "invenio-search-ui>=1.0.0a5",
     "rfc6266-parser",
+    # We use typing.Protocol, which is Py3.8+, but is available in typing-extensions for backwards compatibility
+    'typing-extensions;python_version<"3.8"',
 ]
 
 packages = find_packages()
