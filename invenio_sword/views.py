@@ -116,7 +116,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             data, content_type=self.metadata_class.content_type
         )
 
-    def set_fileset_from_stream(self, record: SWORDDeposit, stream):
+    def set_fileset_from_stream(self, record: SWORDDeposit, stream, replace=True):
         if stream:
             content_disposition, content_disposition_options = parse_options_header(
                 request.headers.get("Content-Disposition", "")
@@ -131,11 +131,13 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             )
         else:
             ingested_keys = set()
-        # Remove previous objects
-        for object_version in ObjectVersion.query.filter_by(
-            bucket=record.bucket
-        ).filter(ObjectVersion.key.notin_(ingested_keys)):
-            ObjectVersion.delete(record.bucket, object_version.key)
+
+        if replace:
+            # Remove previous objects
+            for object_version in ObjectVersion.query.filter_by(
+                bucket=record.bucket
+            ).filter(ObjectVersion.key.notin_(ingested_keys)):
+                ObjectVersion.delete(record.bucket, object_version.key)
 
 
 class ServiceDocumentView(SWORDDepositView):
@@ -222,6 +224,18 @@ class DepositMetadataView(SWORDDepositView):
 
 class DepositFilesetView(SWORDDepositView):
     view_name = "{}_deposit_fileset"
+
+    @pass_record
+    @need_record_permission("update_permission_factory")
+    def post(self, pid, record: SWORDDeposit):
+        self.set_fileset_from_stream(
+            record,
+            request.stream
+            if (request.content_type or request.content_length)
+            else None,
+            replace=False,
+        )
+        return Response(status=http.client.NO_CONTENT)
 
     @pass_record
     @need_record_permission("update_permission_factory")
