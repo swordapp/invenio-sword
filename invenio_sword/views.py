@@ -84,9 +84,9 @@ class SWORDDepositView(ContentNegotiatedMethodView):
 
         if metadata_deposit:
             if by_reference_deposit:
-                self.set_metadata_from_json(record, request.json["metadata"])
+                self.set_metadata(record, request.json["metadata"])
             else:
-                self.set_metadata_from_stream(record, request.stream)
+                self.set_metadata(record, request.stream)
 
         if by_reference_deposit:
             # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
@@ -102,20 +102,19 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         record.commit()
         db.session.commit()
 
-    def set_metadata_from_stream(self, record, stream):
-        record.sword_metadata = self.metadata_class.from_document(
-            stream,
-            content_type=request.content_type,
-            encoding=request.content_encoding,
-        )
-
-    def set_metadata_from_json(self, record, data):
-        if not isinstance(self.metadata_class, JSONMetadata):
+    def set_metadata(
+        self, record: SWORDDeposit, source: typing.Union[BytesReader, dict],
+    ):
+        if isinstance(source, dict) and not isinstance(
+            self.metadata_class, JSONMetadata
+        ):
             raise BadRequest(
                 "Metadata-Format must be JSON-based to use Metadata+By-Reference deposit"
             )
         record.sword_metadata = self.metadata_class.from_document(
-            data, content_type=self.metadata_class.content_type
+            source,
+            content_type=request.content_type,
+            encoding=request.content_encoding,
         )
 
     def set_fileset_from_stream(
@@ -212,7 +211,7 @@ class DepositMetadataView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def put(self, pid, record: SWORDDeposit):
-        self.set_metadata_from_stream(record, request.stream)
+        self.set_metadata(record, request.stream)
         record.commit()
         db.session.commit()
         return Response(status=http.client.NO_CONTENT)
