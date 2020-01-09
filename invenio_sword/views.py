@@ -90,7 +90,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
             raise NotImplemented  # noqa: F901
 
-        if not (metadata_deposit or by_reference_deposit):
+        if not (metadata_deposit or by_reference_deposit) and request.content_type:
             self.set_fileset_from_stream(record, request.stream)
 
         record.commit()

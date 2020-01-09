@@ -26,6 +26,7 @@ import http.client
 import re
 
 from flask_security import url_for_security
+from invenio_files_rest.models import ObjectVersion
 
 from invenio_sword.api import pid_resolver
 
@@ -37,7 +38,7 @@ def test_get_service_document(api):
         assert response.is_json
 
 
-def test_metadata_deposit_empty(api, users, location):
+def test_deposit_empty(api, users, location):
     with api.test_request_context(), api.test_client() as client:
         client.post(
             url_for_security("login"),
@@ -64,6 +65,9 @@ def test_metadata_deposit_empty(api, users, location):
             },
             "_bucket": record.bucket_id,
         }
+
+        # POSTing with no metadata, by-reference, or request body should result in no files being created.
+        assert ObjectVersion.query.filter_by(bucket=record.bucket).count() == 0
 
 
 def test_metadata_deposit(api, users, location, metadata_document):
