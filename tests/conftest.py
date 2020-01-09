@@ -88,6 +88,8 @@ from sqlalchemy_utils.functions import drop_database
 from werkzeug.wsgi import DispatcherMiddleware
 
 from invenio_sword import InvenioSword
+from invenio_sword.metadata import Metadata
+from invenio_sword.typing import BytesReader
 
 
 def object_as_dict(obj):
@@ -95,8 +97,24 @@ def object_as_dict(obj):
     return {c.key: getattr(obj, c.key) for c in inspect(obj).mapper.column_attrs}
 
 
+@pytest.fixture()
+def test_metadata_format():
+    return "http://example.org/TestMetadataFormat"
+
+
+class TestMetadata(Metadata):
+    def __init__(self, data):
+        self.data = data
+
+    @classmethod
+    def from_document(
+        cls, document: BytesReader, content_type: str, encoding: str = "utf_8"
+    ) -> Metadata:
+        return cls({"data": document.read().decode()})
+
+
 @pytest.yield_fixture()
-def base_app(request):
+def base_app(request, test_metadata_format):
     """Flask application fixture."""
     instance_path = tempfile.mkdtemp()
 
@@ -152,6 +170,11 @@ def base_app(request):
     InvenioRecordsREST(api_app)
     InvenioSword(api_app)
     api_app.register_blueprint(invenio_files_rest_blueprint)
+
+    # Register a test (alternate) metadata format
+    api_app.config["SWORD_ENDPOINTS"]["depid"]["metadata_formats"][
+        test_metadata_format
+    ] = TestMetadata
 
     app = Flask("testapp", instance_path=instance_path)
     app.url_map.converters["pid"] = PIDConverter

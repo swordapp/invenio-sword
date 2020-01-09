@@ -1,4 +1,5 @@
 import http.client
+import io
 import json
 import time
 
@@ -186,6 +187,50 @@ def test_post_metadata_document_to_append(
             "dc:title": "Some title",
             "dc:subject": "Another subject",
             "dc:creator": "A person",
+        }
+
+
+def test_post_metadata_document_with_inconsistent_metadata_format(
+    api, users, location, es, test_metadata_format
+):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
+        record = SWORDDeposit.create({})
+        record.sword_metadata = SWORDMetadata(
+            {
+                "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
+                "dc:title": "Some title",
+                "dc:subject": "Some subject",
+            }
+        )
+        record.commit()
+        db.session.commit()
+        time.sleep(1)
+
+        response = client.post(
+            "/sword/deposit/{}/metadata".format(record.pid.pid_value),
+            headers={
+                "Metadata-Format": test_metadata_format,
+                "Content-Type": "text/plain",
+            },
+            data=io.BytesIO(b"some metadata"),
+        )
+        assert response.status_code == http.client.CONFLICT
+
+        record = SWORDDeposit.get_record(record.id)
+        assert (
+            record.sword_metadata_format
+            == "http://purl.org/net/sword/3.0/types/Metadata"
+        )
+        # Check nothing changed
+        assert isinstance(record.sword_metadata, SWORDMetadata)
+        assert record.sword_metadata.data == {
+            "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
+            "dc:title": "Some title",
+            "dc:subject": "Some subject",
         }
 
 
