@@ -10,6 +10,7 @@ from flask import Response
 from invenio_db import db
 from invenio_deposit.search import DepositSearch
 from invenio_deposit.views.rest import create_error_handlers
+from invenio_files_rest.models import ObjectVersion
 from invenio_records_rest.utils import obj_or_import_string
 from invenio_records_rest.views import need_record_permission
 from invenio_records_rest.views import pass_record
@@ -19,11 +20,11 @@ from werkzeug.exceptions import BadRequest
 from werkzeug.exceptions import NotFound
 from werkzeug.exceptions import NotImplemented
 from werkzeug.http import parse_options_header
+from werkzeug.utils import cached_property
 
 from . import serializers
 from .api import SWORDDeposit
 from invenio_sword.metadata import JSONMetadata
-from invenio_sword.metadata import Metadata
 
 
 class SWORDDepositView(ContentNegotiatedMethodView):
@@ -40,6 +41,101 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         )
         for key, value in ctx.items():
             setattr(self, key, value)
+
+    @cached_property
+    def metadata_class(self):
+        metadata_format = request.headers.get(
+            "Metadata-Format", current_app.config["SWORD_DEFAULT_METADATA_FORMAT"]
+        )
+        try:
+            return current_app.config["SWORD_METADATA_FORMATS"][metadata_format]
+        except KeyError as e:
+            raise NotImplemented(  # noqa: F901
+                "Unsupported Metadata-Format header value"
+            ) from e
+
+    @cached_property
+    def packaging_class(self):
+        packaging = request.headers.get(
+            "Packaging", current_app.config["SWORD_DEFAULT_PACKAGING_FORMAT"]
+        )
+        try:
+            return current_app.config["SWORD_PACKAGING_FORMATS"][packaging]
+        except KeyError as e:
+            raise NotImplemented(  # noqa: F901
+                "Unsupported Packaging header value"
+            ) from e
+
+    def create_deposit(self) -> SWORDDeposit:
+        in_progress = request.headers.get("In-Progress") == "true"
+        record = SWORDDeposit.create({"metadata": {}, "swordMetadata": {},})
+        record["_deposit"]["status"] = "draft" if in_progress else "published"
+        return record
+
+    def update_deposit(self, record: SWORDDeposit) -> None:
+        content_disposition, content_disposition_options = parse_options_header(
+            request.headers.get("Content-Disposition", "")
+        )
+
+        metadata_deposit = content_disposition_options.get("metadata") == "true"
+        by_reference_deposit = content_disposition_options.get("by-reference") == "true"
+
+        if metadata_deposit:
+            if by_reference_deposit:
+                self.set_metadata_from_json(record, request.json["metadata"])
+            else:
+                self.set_metadata_from_stream(record, request.stream)
+
+        if by_reference_deposit:
+            # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
+            raise NotImplemented  # noqa: F901
+
+        if not (metadata_deposit or by_reference_deposit) and (
+            request.content_type or request.content_length
+        ):
+            self.set_fileset_from_stream(record, request.stream)
+        else:
+            self.set_fileset_from_stream(record, None)
+
+        record.commit()
+        db.session.commit()
+
+    def set_metadata_from_stream(self, record, stream):
+        record.sword_metadata = self.metadata_class.from_document(
+            stream,
+            content_type=request.content_type,
+            encoding=request.content_encoding,
+        )
+
+    def set_metadata_from_json(self, record, data):
+        if not isinstance(self.metadata_class, JSONMetadata):
+            raise BadRequest(
+                "Metadata-Format must be JSON-based to use Metadata+By-Reference deposit"
+            )
+        record.sword_metadata = self.metadata_class.from_document(
+            data, content_type=self.metadata_class.content_type
+        )
+
+    def set_fileset_from_stream(self, record: SWORDDeposit, stream):
+        if stream:
+            content_disposition, content_disposition_options = parse_options_header(
+                request.headers.get("Content-Disposition", "")
+            )
+            content_type, _ = parse_options_header(request.content_type)
+            filename = content_disposition_options.get("filename")
+            ingested_keys = self.packaging_class().ingest(
+                record=record,
+                stream=stream,
+                filename=filename,
+                content_type=content_type,
+            )
+        else:
+            ingested_keys = set()
+        # Remove previous objects
+        for object_version in ObjectVersion.query.filter_by(
+            bucket=record.bucket
+        ).filter(ObjectVersion.key.notin_(ingested_keys)):
+            ObjectVersion.delete(record.bucket, object_version.key)
 
 
 class ServiceDocumentView(SWORDDepositView):
@@ -61,69 +157,14 @@ class ServiceDocumentView(SWORDDepositView):
 
     @need_record_permission("create_permission_factory")
     def post(self, **kwargs):
-        content_disposition, content_disposition_options = parse_options_header(
-            request.headers.get("Content-Disposition", "")
-        )
-        content_type, _ = parse_options_header(request.content_type)
-        filename = content_disposition_options.get("filename")
-        in_progress = request.headers.get("In-Progress") == "true"
-        packaging = request.headers.get(
-            "Packaging", current_app.config["SWORD_DEFAULT_PACKAGING_FORMAT"]
-        )
-        metadata_format = request.headers.get(
-            "Metadata-Format", current_app.config["SWORD_DEFAULT_METADATA_FORMAT"]
-        )
-
-        try:
-            packaging = current_app.config["SWORD_PACKAGING_FORMATS"][packaging]()
-        except KeyError:
-            raise BadRequest("Unexpected packaging format")
-
-        # print(request.files)
-        record = SWORDDeposit.create({"metadata": {}, "swordMetadata": {},})
-        record["_deposit"]["status"] = "draft" if in_progress else "published"
+        record = self.create_deposit()
 
         # Check permissions
         permission_factory = self.create_permission_factory
         if permission_factory:
             verify_record_permission(permission_factory, record)
 
-        metadata_deposit = content_disposition_options.get("metadata") == "true"
-        by_reference_deposit = content_disposition_options.get("by-reference") == "true"
-
-        if metadata_deposit:
-            metadata_cls: Metadata = current_app.config["SWORD_METADATA_FORMATS"][
-                metadata_format
-            ]
-            if by_reference_deposit:
-                if not isinstance(metadata_cls, JSONMetadata):
-                    raise BadRequest(
-                        "Metadata-Format must be JSON-based to use Metadata+By-Reference deposit"
-                    )
-                record.sword_metadata = metadata_cls.from_document(
-                    request.json["metadata"], content_type=metadata_cls.content_type
-                )
-            else:
-                record.sword_metadata = metadata_cls.from_document(
-                    request.stream,
-                    content_type=request.content_type,
-                    encoding=request.content_encoding,
-                )
-
-        if by_reference_deposit:
-            # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
-            raise NotImplemented  # noqa: F901
-
-        if not (metadata_deposit or by_reference_deposit):
-            packaging.ingest(
-                record=record,
-                stream=request.stream,
-                filename=filename,
-                content_type=content_type,
-            )
-
-        record.commit()
-        db.session.commit()
+        self.update_deposit(record)
 
         response = self.make_response(record.get_status_as_jsonld())  # type: Response
         response.status_code = http.client.CREATED
@@ -137,6 +178,12 @@ class DepositStatusView(SWORDDepositView):
     @pass_record
     @need_record_permission("read_permission_factory")
     def get(self, pid, record: SWORDDeposit):
+        return record.get_status_as_jsonld()
+
+    @pass_record
+    @need_record_permission("update_permission_factory")
+    def put(self, pid, record: SWORDDeposit):
+        self.update_deposit(record)
         return record.get_status_as_jsonld()
 
 
@@ -159,16 +206,7 @@ class DepositMetadataView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def put(self, pid, record: SWORDDeposit):
-        metadata_format = request.headers.get("Metadata-Format")
-        if not metadata_format:
-            raise BadRequest("Missing Metadata-Format header")
-        try:
-            metadata_cls = current_app.config["SWORD_METADATA_FORMATS"][metadata_format]
-        except KeyError:
-            raise NotImplemented  # noqa: F901
-        record.sword_metadata = metadata_cls.from_document(
-            request.stream, content_type=request.content_type
-        )
+        self.set_metadata_from_stream(record, request.stream)
         record.commit()
         db.session.commit()
         return Response(status=http.client.NO_CONTENT)
@@ -186,9 +224,15 @@ class DepositFilesetView(SWORDDepositView):
     view_name = "{}_deposit_fileset"
 
     @pass_record
-    @need_record_permission("read_permission_factory")
-    def get(self, pid, record: SWORDDeposit):
-        raise NotImplementedError  # pragma: nocover
+    @need_record_permission("update_permission_factory")
+    def put(self, pid, record: SWORDDeposit):
+        self.set_fileset_from_stream(
+            record,
+            request.stream
+            if (request.content_type or request.content_length)
+            else None,
+        )
+        return Response(status=http.client.NO_CONTENT)
 
 
 def create_blueprint(endpoints):

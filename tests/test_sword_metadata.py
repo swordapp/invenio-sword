@@ -1,27 +1,8 @@
-import io
-import json
-
 import pytest
 from werkzeug.exceptions import UnsupportedMediaType
 
 from invenio_sword.api import SWORDDeposit
 from invenio_sword.metadata import SWORDMetadata
-
-
-@pytest.fixture()
-def metadata_document():
-    return io.BytesIO(
-        json.dumps(
-            {
-                "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
-                "@id": "http://example.com/object/1/metadata",
-                "@type": "Metadata",
-                "dc:title": "The title",
-                "dcterms:abstract": "This is my abstract",
-                "dc:contributor": "A.N. Other",
-            }
-        ).encode()
-    )
 
 
 def test_parse_document(metadata_document):

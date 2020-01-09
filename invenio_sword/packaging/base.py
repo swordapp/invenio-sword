@@ -12,4 +12,4 @@ class Packaging:
         filename: str = None,
         content_type: str
     ):
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: nocover

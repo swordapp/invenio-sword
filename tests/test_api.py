@@ -26,6 +26,7 @@ import http.client
 import re
 
 from flask_security import url_for_security
+from invenio_files_rest.models import ObjectVersion
 
 from invenio_sword.api import pid_resolver
 
@@ -37,7 +38,7 @@ def test_get_service_document(api):
         assert response.is_json
 
 
-def test_metadata_deposit_empty(api, users, location):
+def test_deposit_empty(api, users, location):
     with api.test_request_context(), api.test_client() as client:
         client.post(
             url_for_security("login"),
@@ -55,6 +56,52 @@ def test_metadata_deposit_empty(api, users, location):
         assert dict(record) == {
             "metadata": {},
             "swordMetadata": {},
+            "$schema": "http://localhost/schemas/deposits/deposit-v1.0.0.json",
+            "_deposit": {
+                "id": pid_value,
+                "status": "published",
+                "owners": [users[0]["id"]],
+                "created_by": users[0]["id"],
+            },
+            "_bucket": record.bucket_id,
+        }
+
+        # POSTing with no metadata, by-reference, or request body should result in no files being created.
+        assert ObjectVersion.query.filter_by(bucket=record.bucket).count() == 0
+
+
+def test_metadata_deposit(api, users, location, metadata_document):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
+
+        response = client.post(
+            "/sword/service-document",
+            data=metadata_document,
+            headers={
+                "Content-Disposition": "attachment; metadata=true",
+                "Content-Type": "application/ld+json",
+            },
+        )
+        assert response.status_code == http.client.CREATED
+        match = re.match(
+            "^http://localhost/sword/deposit/([^/]+)$", response.headers["Location"]
+        )
+        assert match is not None
+        pid_value = match.group(1)
+        _, record = pid_resolver.resolve(pid_value)
+        assert dict(record) == {
+            "metadata": {"title_statement": {"title": "The title"}},
+            "swordMetadata": {
+                "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
+                "@type": "Metadata",
+                "dc:contributor": "A.N. Other",
+                "dc:title": "The title",
+                "dcterms:abstract": "This is my abstract",
+            },
+            "swordMetadataFormat": "http://purl.org/net/sword/3.0/types/Metadata",
             "$schema": "http://localhost/schemas/deposits/deposit-v1.0.0.json",
             "_deposit": {
                 "id": pid_value,

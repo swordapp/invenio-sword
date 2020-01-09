@@ -33,10 +33,14 @@ class SimpleZipPackaging(Packaging):
 
             zip = zipfile.ZipFile(f)
 
-            for name in zip.namelist():
+            names = set(zip.namelist())
+
+            for name in names:
                 ObjectVersion.create(
                     record.bucket,
                     name,
                     mimetype=mimetypes.guess_type(name)[0],
                     stream=zip.open(name),
                 )
+
+        return names

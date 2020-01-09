@@ -26,6 +26,8 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import datetime
+import io
+import json
 import os
 import shutil
 import tempfile
@@ -392,3 +394,19 @@ def oauth2_headers_user_2(app, json_headers, write_token_user_2):
     It uses the token associated with the second user.
     """
     return fill_oauth2_headers(json_headers, write_token_user_2)
+
+
+@pytest.fixture()
+def metadata_document():
+    return io.BytesIO(
+        json.dumps(
+            {
+                "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
+                "@id": "http://example.com/object/1/metadata",
+                "@type": "Metadata",
+                "dc:title": "The title",
+                "dcterms:abstract": "This is my abstract",
+                "dc:contributor": "A.N. Other",
+            }
+        ).encode()
+    )
