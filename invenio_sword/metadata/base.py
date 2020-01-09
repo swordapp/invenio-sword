@@ -3,6 +3,7 @@ from __future__ import annotations
 import typing
 
 from invenio_sword.api import SWORDDeposit
+from invenio_sword.typing import BytesReader
 
 
 class Metadata:
@@ -10,7 +11,7 @@ class Metadata:
 
     @classmethod
     def from_document(
-        cls, document: typing.BinaryIO, content_type: str, encoding: str = "utf_8"
+        cls, document: BytesReader, content_type: str, encoding: str = "utf_8"
     ) -> Metadata:
         raise NotImplementedError
 
@@ -28,7 +29,7 @@ class JSONMetadata(Metadata):
     @classmethod
     def from_document(
         cls,
-        document: typing.Union[typing.BinaryIO, dict],
+        document: typing.Union[BytesReader, dict],
         content_type: str,
         encoding: str = "utf_8",
     ) -> Metadata:

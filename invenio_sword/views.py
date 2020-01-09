@@ -1,4 +1,5 @@
 import http.client
+import typing
 from copy import deepcopy
 from functools import partial
 
@@ -25,6 +26,7 @@ from werkzeug.utils import cached_property
 from . import serializers
 from .api import SWORDDeposit
 from invenio_sword.metadata import JSONMetadata
+from invenio_sword.typing import BytesReader
 
 
 class SWORDDepositView(ContentNegotiatedMethodView):
@@ -116,7 +118,9 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             data, content_type=self.metadata_class.content_type
         )
 
-    def set_fileset_from_stream(self, record: SWORDDeposit, stream, replace=True):
+    def set_fileset_from_stream(
+        self, record: SWORDDeposit, stream: typing.Optional[BytesReader], replace=True
+    ):
         if stream:
             content_disposition, content_disposition_options = parse_options_header(
                 request.headers.get("Content-Disposition", "")

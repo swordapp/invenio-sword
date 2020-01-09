@@ -1,6 +1,5 @@
-import typing
-
 from invenio_sword.api import SWORDDeposit
+from invenio_sword.typing import BytesReader
 
 
 class Packaging:
@@ -8,7 +7,7 @@ class Packaging:
         self,
         *,
         record: SWORDDeposit,
-        stream: typing.BinaryIO,
+        stream: BytesReader,
         filename: str = None,
         content_type: str
     ):
