@@ -1,7 +1,6 @@
 import mimetypes
 import shutil
 import tempfile
-import typing
 import zipfile
 
 from invenio_files_rest.models import ObjectVersion
@@ -9,6 +8,7 @@ from werkzeug.exceptions import UnsupportedMediaType
 
 from ..api import SWORDDeposit
 from .base import Packaging
+from invenio_sword.typing import BytesReader
 
 __all__ = ["SimpleZipPackaging"]
 
@@ -20,7 +20,7 @@ class SimpleZipPackaging(Packaging):
         self,
         *,
         record: SWORDDeposit,
-        stream: typing.BinaryIO,
+        stream: BytesReader,
         filename: str = None,
         content_type: str
     ):

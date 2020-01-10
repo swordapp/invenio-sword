@@ -1,4 +1,5 @@
 import http.client
+import typing
 from copy import deepcopy
 from functools import partial
 
@@ -17,6 +18,7 @@ from invenio_records_rest.views import pass_record
 from invenio_records_rest.views import verify_record_permission
 from invenio_rest import ContentNegotiatedMethodView
 from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import Conflict
 from werkzeug.exceptions import NotFound
 from werkzeug.exceptions import NotImplemented
 from werkzeug.http import parse_options_header
@@ -25,6 +27,7 @@ from werkzeug.utils import cached_property
 from . import serializers
 from .api import SWORDDeposit
 from invenio_sword.metadata import JSONMetadata
+from invenio_sword.typing import BytesReader
 
 
 class SWORDDepositView(ContentNegotiatedMethodView):
@@ -44,11 +47,12 @@ class SWORDDepositView(ContentNegotiatedMethodView):
 
     @cached_property
     def metadata_class(self):
+
         metadata_format = request.headers.get(
-            "Metadata-Format", current_app.config["SWORD_DEFAULT_METADATA_FORMAT"]
+            "Metadata-Format", self.endpoint_options["default_metadata_format"]
         )
         try:
-            return current_app.config["SWORD_METADATA_FORMATS"][metadata_format]
+            return self.endpoint_options["metadata_formats"][metadata_format]
         except KeyError as e:
             raise NotImplemented(  # noqa: F901
                 "Unsupported Metadata-Format header value"
@@ -72,7 +76,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         record["_deposit"]["status"] = "draft" if in_progress else "published"
         return record
 
-    def update_deposit(self, record: SWORDDeposit) -> None:
+    def update_deposit(self, record: SWORDDeposit, replace: bool = True) -> None:
         content_disposition, content_disposition_options = parse_options_header(
             request.headers.get("Content-Disposition", "")
         )
@@ -82,9 +86,9 @@ class SWORDDepositView(ContentNegotiatedMethodView):
 
         if metadata_deposit:
             if by_reference_deposit:
-                self.set_metadata_from_json(record, request.json["metadata"])
+                self.set_metadata(record, request.json["metadata"], replace=replace)
             else:
-                self.set_metadata_from_stream(record, request.stream)
+                self.set_metadata(record, request.stream, replace=replace)
 
         if by_reference_deposit:
             # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
@@ -93,30 +97,42 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         if not (metadata_deposit or by_reference_deposit) and (
             request.content_type or request.content_length
         ):
-            self.set_fileset_from_stream(record, request.stream)
+            self.set_fileset_from_stream(record, request.stream, replace=replace)
         else:
-            self.set_fileset_from_stream(record, None)
+            self.set_fileset_from_stream(record, None, replace=replace)
 
         record.commit()
         db.session.commit()
 
-    def set_metadata_from_stream(self, record, stream):
-        record.sword_metadata = self.metadata_class.from_document(
-            stream,
-            content_type=request.content_type,
-            encoding=request.content_encoding,
-        )
-
-    def set_metadata_from_json(self, record, data):
-        if not isinstance(self.metadata_class, JSONMetadata):
+    def set_metadata(
+        self,
+        record: SWORDDeposit,
+        source: typing.Union[BytesReader, dict],
+        replace: bool = True,
+    ):
+        if isinstance(source, dict) and not isinstance(
+            self.metadata_class, JSONMetadata
+        ):
             raise BadRequest(
                 "Metadata-Format must be JSON-based to use Metadata+By-Reference deposit"
             )
-        record.sword_metadata = self.metadata_class.from_document(
-            data, content_type=self.metadata_class.content_type
+        metadata = self.metadata_class.from_document(
+            source,
+            content_type=request.content_type,
+            encoding=request.content_encoding,
         )
+        if not replace and record.sword_metadata:
+            try:
+                metadata = record.sword_metadata + metadata
+            except TypeError:
+                raise Conflict(
+                    "Existing or new metadata is of wrong type for appending. Reconcile client-side and PUT instead"
+                )
+        record.sword_metadata = metadata
 
-    def set_fileset_from_stream(self, record: SWORDDeposit, stream, replace=True):
+    def set_fileset_from_stream(
+        self, record: SWORDDeposit, stream: typing.Optional[BytesReader], replace=True
+    ):
         if stream:
             content_disposition, content_disposition_options = parse_options_header(
                 request.headers.get("Content-Disposition", "")
@@ -153,8 +169,8 @@ class ServiceDocumentView(SWORDDepositView):
             "maxUploadSize": current_app.config["SWORD_MAX_UPLOAD_SIZE"],
             "maxByReferenceSize": current_app.config["SWORD_MAX_BY_REFERENCE_SIZE"],
             "acceptArchiveFormat": ["application/zip"],
-            "acceptPackaging": sorted(current_app.config["SWORD_PACKAGING_FORMATS"]),
-            "acceptMetadata": sorted(current_app.config["SWORD_METADATA_FORMATS"]),
+            "acceptPackaging": sorted(self.endpoint_options["packaging_formats"]),
+            "acceptMetadata": sorted(self.endpoint_options["metadata_formats"]),
         }
 
     @need_record_permission("create_permission_factory")
@@ -184,6 +200,12 @@ class DepositStatusView(SWORDDepositView):
 
     @pass_record
     @need_record_permission("update_permission_factory")
+    def post(self, pid, record: SWORDDeposit):
+        self.update_deposit(record, replace=False)
+        return record.get_status_as_jsonld()
+
+    @pass_record
+    @need_record_permission("update_permission_factory")
     def put(self, pid, record: SWORDDeposit):
         self.update_deposit(record)
         return record.get_status_as_jsonld()
@@ -207,8 +229,16 @@ class DepositMetadataView(SWORDDepositView):
 
     @pass_record
     @need_record_permission("update_permission_factory")
+    def post(self, pid, record: SWORDDeposit):
+        self.set_metadata(record, request.stream, replace=False)
+        record.commit()
+        db.session.commit()
+        return Response(status=http.client.NO_CONTENT)
+
+    @pass_record
+    @need_record_permission("update_permission_factory")
     def put(self, pid, record: SWORDDeposit):
-        self.set_metadata_from_stream(record, request.stream)
+        self.set_metadata(record, request.stream)
         record.commit()
         db.session.commit()
         return Response(status=http.client.NO_CONTENT)
@@ -296,6 +326,7 @@ def create_blueprint(endpoints):
             record_class=record_class,
             search_class=partial(search_class, **search_class_kwargs),
             default_media_type=options.get("default_media_type"),
+            endpoint_options=options,
         )
 
         blueprint.add_url_rule(

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import json
 import typing
 import uuid
@@ -12,6 +11,7 @@ from werkzeug.exceptions import UnsupportedMediaType
 
 from .base import JSONMetadata
 from invenio_sword.api import SWORDDeposit
+from invenio_sword.typing import BytesReader
 
 __all__ = ["SWORDMetadata"]
 
@@ -25,7 +25,7 @@ class SWORDMetadata(JSONMetadata):
     @classmethod
     def from_document(
         cls,
-        document: typing.Union[typing.BinaryIO, dict],
+        document: typing.Union[BytesReader, dict],
         content_type: str,
         encoding: str = "utf_8",
     ) -> SWORDMetadata:
@@ -33,7 +33,7 @@ class SWORDMetadata(JSONMetadata):
             raise UnsupportedMediaType(
                 "Content-Type must be {}".format(cls.content_type)
             )
-        if isinstance(document, (typing.BinaryIO, io.IOBase)):
+        if isinstance(document, BytesReader):
             try:
                 data = json.load(document, encoding=encoding)
             except json.JSONDecodeError as e:
@@ -75,3 +75,8 @@ class SWORDMetadata(JSONMetadata):
 
     def to_document(self, metadata_url):
         return json.dumps({**self.data, "@id": metadata_url}, indent=2)
+
+    def __add__(self, other):
+        if not isinstance(other, SWORDMetadata):
+            return NotImplemented
+        return type(self)({**self.data, **other.data})

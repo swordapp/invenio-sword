@@ -2,7 +2,6 @@ import mimetypes
 import os
 import shutil
 import tempfile
-import typing
 import zipfile
 
 import bagit
@@ -14,6 +13,7 @@ from werkzeug.exceptions import UnsupportedMediaType
 from .base import Packaging
 from invenio_sword.api import SWORDDeposit
 from invenio_sword.metadata import SWORDMetadata
+from invenio_sword.typing import BytesReader
 
 __all__ = ["SWORDBagItPackaging"]
 
@@ -25,7 +25,7 @@ class SWORDBagItPackaging(Packaging):
         self,
         *,
         record: SWORDDeposit,
-        stream: typing.BinaryIO,
+        stream: BytesReader,
         filename: str = None,
         content_type: str
     ):

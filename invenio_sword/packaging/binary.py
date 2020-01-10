@@ -1,10 +1,10 @@
 import mimetypes
-import typing
 
 from invenio_files_rest.models import ObjectVersion
 
 from ..api import SWORDDeposit
 from .base import Packaging
+from invenio_sword.typing import BytesReader
 
 __all__ = ["BinaryPackaging"]
 
@@ -14,7 +14,7 @@ class BinaryPackaging(Packaging):
         self,
         *,
         record: SWORDDeposit,
-        stream: typing.BinaryIO,
+        stream: BytesReader,
         filename: str = None,
         content_type: str
     ):
