@@ -433,3 +433,8 @@ def metadata_document():
             }
         ).encode()
     )
+
+
+@pytest.fixture()
+def fixtures_path():
+    return os.path.join(os.path.dirname(__file__), "fixtures")
