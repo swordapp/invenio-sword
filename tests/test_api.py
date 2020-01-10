@@ -22,8 +22,8 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 """Test the API."""
-import http.client
 import re
+from http import HTTPStatus
 
 from flask_security import url_for_security
 from invenio_files_rest.models import ObjectVersion
@@ -34,7 +34,7 @@ from invenio_sword.api import pid_resolver
 def test_get_service_document(api):
     with api.test_client() as client:
         response = client.get("/sword/service-document")
-        assert response.status_code == 200
+        assert response.status_code == HTTPStatus.OK
         assert response.is_json
 
 
@@ -46,7 +46,7 @@ def test_deposit_empty(api, users, location):
         )
 
         response = client.post("/sword/service-document")
-        assert response.status_code == http.client.CREATED
+        assert response.status_code == HTTPStatus.CREATED
         match = re.match(
             "^http://localhost/sword/deposit/([^/]+)$", response.headers["Location"]
         )
@@ -85,7 +85,7 @@ def test_metadata_deposit(api, users, location, metadata_document):
                 "Content-Type": "application/ld+json",
             },
         )
-        assert response.status_code == http.client.CREATED
+        assert response.status_code == HTTPStatus.CREATED
         match = re.match(
             "^http://localhost/sword/deposit/([^/]+)$", response.headers["Location"]
         )

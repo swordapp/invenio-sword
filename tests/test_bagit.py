@@ -22,8 +22,8 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 """Test the BagIt implementation."""
-import http.client
 import os
+from http import HTTPStatus
 
 import pytest
 from flask import url_for
@@ -52,7 +52,7 @@ def test_post_service_document_with_bagit_bag(api, users, location):
                 },
             )
 
-        assert response.status_code == http.client.CREATED
+        assert response.status_code == HTTPStatus.CREATED
 
         bucket = Bucket.query.one()
         obj_1 = ObjectVersion.query.filter_by(bucket=bucket, key="example.svg").one()
@@ -94,9 +94,9 @@ def test_post_service_document_with_bagit_bag(api, users, location):
 @pytest.mark.parametrize(
     "filename,status_code",
     [
-        ("bagit-broken-sha.zip", http.client.BAD_REQUEST),
-        ("bagit-no-bagit-txt.zip", http.client.BAD_REQUEST),
-        ("bagit-with-fetch.zip", http.client.NOT_IMPLEMENTED),
+        ("bagit-broken-sha.zip", HTTPStatus.BAD_REQUEST),
+        ("bagit-no-bagit-txt.zip", HTTPStatus.BAD_REQUEST),
+        ("bagit-with-fetch.zip", HTTPStatus.NOT_IMPLEMENTED),
     ],
 )
 def test_post_service_document_with_broken_bag(
@@ -138,4 +138,4 @@ def test_post_service_document_with_incorrect_content_type(api, users, location)
                 },
             )
 
-        assert response.status_code == http.client.UNSUPPORTED_MEDIA_TYPE
+        assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE

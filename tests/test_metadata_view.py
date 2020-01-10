@@ -1,7 +1,7 @@
-import http.client
 import io
 import json
 import time
+from http import HTTPStatus
 
 import pytest
 from flask import url_for
@@ -26,10 +26,10 @@ def test_get_metadata_document(api, users, location, es):
         time.sleep(1)
 
         response = client.get("/sword/deposit/{}".format(record.pid.pid_value))
-        assert response.status_code == 200
+        assert response.status_code == HTTPStatus.OK
 
         response = client.get("/sword/deposit/{}/metadata".format(record.pid.pid_value))
-        assert response.status_code == 200
+        assert response.status_code == HTTPStatus.OK
         assert response.is_json
         assert (
             response.headers["Metadata-Format"]
@@ -55,11 +55,11 @@ def test_get_metadata_document_when_not_available(api, users, location, es):
         time.sleep(1)
 
         status_response = client.get("/sword/deposit/{}".format(record.pid.pid_value))
-        assert status_response.status_code == http.client.OK
+        assert status_response.status_code == HTTPStatus.OK
         status_response = client.get(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value)
         )
-        assert status_response.status_code == http.client.NOT_FOUND
+        assert status_response.status_code == HTTPStatus.NOT_FOUND
 
 
 def test_put_metadata_document_without_body(api, users, location, es):
@@ -74,7 +74,7 @@ def test_put_metadata_document_without_body(api, users, location, es):
         time.sleep(1)
 
         response = client.put("/sword/deposit/{}/metadata".format(record.pid.pid_value))
-        assert response.status_code == http.client.UNSUPPORTED_MEDIA_TYPE
+        assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
 
 
 def test_put_metadata_document_invalid_json(api, users, location, es):
@@ -95,7 +95,7 @@ def test_put_metadata_document_invalid_json(api, users, location, es):
                 "Metadata-Format": "http://purl.org/net/sword/3.0/types/Metadata",
             },
         )
-        assert response.status_code == http.client.BAD_REQUEST
+        assert response.status_code == HTTPStatus.BAD_REQUEST
 
 
 def test_put_metadata_document(api, users, location, es):
@@ -117,7 +117,7 @@ def test_put_metadata_document(api, users, location, es):
             },
             data=json.dumps({}),
         )
-        assert response.status_code == http.client.NO_CONTENT
+        assert response.status_code == HTTPStatus.NO_CONTENT
 
         record = SWORDDeposit.get_record(record.id)
         assert (
@@ -131,10 +131,10 @@ def test_put_metadata_document(api, users, location, es):
 @pytest.mark.parametrize(
     "view_name,status_code,additional_headers",
     [
-        ("invenio_sword.depid_deposit_metadata", http.client.NO_CONTENT, {}),
+        ("invenio_sword.depid_deposit_metadata", HTTPStatus.NO_CONTENT, {}),
         (
             "invenio_sword.depid_deposit_status",
-            http.client.OK,
+            HTTPStatus.OK,
             {"Content-Disposition": "attachment; metadata=true"},
         ),
     ],
@@ -218,7 +218,7 @@ def test_post_metadata_document_with_inconsistent_metadata_format(
             },
             data=io.BytesIO(b"some metadata"),
         )
-        assert response.status_code == http.client.CONFLICT
+        assert response.status_code == HTTPStatus.CONFLICT
 
         record = SWORDDeposit.get_record(record.id)
         assert (
@@ -253,7 +253,7 @@ def test_put_metadata_document_with_unsupported_format(api, users, location, es)
             },
             data=json.dumps({}),
         )
-        assert response.status_code == http.client.NOT_IMPLEMENTED
+        assert response.status_code == HTTPStatus.NOT_IMPLEMENTED
 
 
 def test_delete_metadata_document(api, users, location, es):
@@ -274,7 +274,7 @@ def test_delete_metadata_document(api, users, location, es):
         response = client.delete(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value)
         )
-        assert response.status_code == http.client.NO_CONTENT
+        assert response.status_code == HTTPStatus.NO_CONTENT
 
         record = SWORDDeposit.get_record(record.id)
         assert record.sword_metadata_format is None

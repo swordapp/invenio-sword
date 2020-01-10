@@ -1,6 +1,6 @@
-import http.client
 import io
 import time
+from http import HTTPStatus
 
 from flask import url_for
 from flask_security import url_for_security
@@ -27,7 +27,7 @@ def test_get_fileset_url(api, users, location, es):
                 "invenio_sword.depid_deposit_fileset", pid_value=record.pid.pid_value
             )
         )
-        assert response.status_code == http.client.METHOD_NOT_ALLOWED
+        assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
 
 
 def test_put_fileset_url(api, users, location, es):
@@ -58,7 +58,7 @@ def test_put_fileset_url(api, users, location, es):
                 "Content-Type": "text/plain",
             },
         )
-        assert response.status_code == http.client.NO_CONTENT
+        assert response.status_code == HTTPStatus.NO_CONTENT
 
         # Check original ObjectVersion is marked deleted
         original_object_versions = list(
@@ -106,7 +106,7 @@ def test_post_fileset_url(api, users, location, es):
                 "Content-Type": "text/plain",
             },
         )
-        assert response.status_code == http.client.NO_CONTENT
+        assert response.status_code == HTTPStatus.NO_CONTENT
 
         # Check original ObjectVersion is still there
         original_object_versions = list(

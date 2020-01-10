@@ -22,8 +22,8 @@
 # waive the privileges and immunities granted to it by virtue of its status
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 """Test the BagIt implementation."""
-import http.client
 import os
+from http import HTTPStatus
 
 from flask import url_for
 from flask_security import url_for_security
@@ -50,7 +50,7 @@ def test_post_service_document_with_simple_zip(api, users, location):
                 },
             )
 
-        assert response.status_code == http.client.CREATED
+        assert response.status_code == HTTPStatus.CREATED
 
         bucket = Bucket.query.one()
         obj_1 = ObjectVersion.query.filter_by(bucket=bucket, key="example.svg").one()
