@@ -1,7 +1,7 @@
-import http.client
 import typing
 from copy import deepcopy
 from functools import partial
+from http import HTTPStatus
 
 from flask import Blueprint
 from flask import current_app
@@ -185,7 +185,7 @@ class ServiceDocumentView(SWORDDepositView):
         self.update_deposit(record)
 
         response = self.make_response(record.get_status_as_jsonld())  # type: Response
-        response.status_code = http.client.CREATED
+        response.status_code = HTTPStatus.CREATED
         response.headers["Location"] = record.sword_status_url
         return response
 
@@ -233,7 +233,7 @@ class DepositMetadataView(SWORDDepositView):
         self.set_metadata(record, request.stream, replace=False)
         record.commit()
         db.session.commit()
-        return Response(status=http.client.NO_CONTENT)
+        return Response(status=HTTPStatus.NO_CONTENT)
 
     @pass_record
     @need_record_permission("update_permission_factory")
@@ -241,7 +241,7 @@ class DepositMetadataView(SWORDDepositView):
         self.set_metadata(record, request.stream)
         record.commit()
         db.session.commit()
-        return Response(status=http.client.NO_CONTENT)
+        return Response(status=HTTPStatus.NO_CONTENT)
 
     @pass_record
     @need_record_permission("delete_permission_factory")
@@ -249,7 +249,7 @@ class DepositMetadataView(SWORDDepositView):
         record.sword_metadata = None
         record.commit()
         db.session.commit()
-        return Response(status=http.client.NO_CONTENT)
+        return Response(status=HTTPStatus.NO_CONTENT)
 
 
 class DepositFilesetView(SWORDDepositView):
@@ -265,7 +265,7 @@ class DepositFilesetView(SWORDDepositView):
             else None,
             replace=False,
         )
-        return Response(status=http.client.NO_CONTENT)
+        return Response(status=HTTPStatus.NO_CONTENT)
 
     @pass_record
     @need_record_permission("update_permission_factory")
@@ -276,7 +276,7 @@ class DepositFilesetView(SWORDDepositView):
             if (request.content_type or request.content_length)
             else None,
         )
-        return Response(status=http.client.NO_CONTENT)
+        return Response(status=HTTPStatus.NO_CONTENT)
 
 
 def create_blueprint(endpoints):
