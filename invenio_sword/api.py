@@ -19,18 +19,24 @@ logger = logging.getLogger(__name__)
 
 
 class SWORDFileObject(FileObject):
+    def __init__(self, *args, pid_value, **kwargs):
+        self.pid_value = pid_value
+        return super().__init__(*args, **kwargs)
+
     @property
     def rest_file_url(self):
         return url_for(
-            "invenio_files_rest.object_api",
-            bucket_id=self.bucket.id,
+            "invenio_deposit_rest.depid_file",
+            pid_value=self.pid_value,
             key=self.key,
             _external=True,
         )
 
 
 class SWORDDeposit(Deposit):
-    file_cls = SWORDFileObject
+    @property
+    def file_cls(self):
+        return functools.partial(SWORDFileObject, pid_value=self.pid.pid_value)
 
     def get_status_as_jsonld(self):
         return {
