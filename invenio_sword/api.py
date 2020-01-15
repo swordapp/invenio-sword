@@ -19,15 +19,15 @@ logger = logging.getLogger(__name__)
 
 
 class SWORDFileObject(FileObject):
-    def __init__(self, *args, pid_value, **kwargs):
-        self.pid_value = pid_value
+    def __init__(self, *args, pid, **kwargs):
+        self.pid = pid
         return super().__init__(*args, **kwargs)
 
     @property
     def rest_file_url(self):
         return url_for(
-            "invenio_deposit_rest.depid_file",
-            pid_value=self.pid_value,
+            "invenio_sword.{}_file".format(self.pid.pid_type),
+            pid_value=self.pid.pid_value,
             key=self.key,
             _external=True,
         )
@@ -36,7 +36,7 @@ class SWORDFileObject(FileObject):
 class SWORDDeposit(Deposit):
     @property
     def file_cls(self):
-        return functools.partial(SWORDFileObject, pid_value=self.pid.pid_value)
+        return functools.partial(SWORDFileObject, pid=self.pid)
 
     def get_status_as_jsonld(self):
         return {
@@ -84,7 +84,7 @@ class SWORDDeposit(Deposit):
     @property
     def sword_status_url(self):
         return url_for(
-            "invenio_sword.{}_deposit_status".format(self.pid.pid_type),
+            "invenio_sword.{}_item".format(self.pid.pid_type),
             pid_value=self.pid.pid_value,
             _external=True,
         )
@@ -92,7 +92,7 @@ class SWORDDeposit(Deposit):
     @property
     def sword_metadata_url(self):
         return url_for(
-            "invenio_sword.{}_deposit_metadata".format(self.pid.pid_type),
+            "invenio_sword.{}_metadata".format(self.pid.pid_type),
             pid_value=self.pid.pid_value,
             _external=True,
         )
@@ -100,7 +100,7 @@ class SWORDDeposit(Deposit):
     @property
     def sword_fileset_url(self):
         return url_for(
-            "invenio_sword.{}_deposit_fileset".format(self.pid.pid_type),
+            "invenio_sword.{}_fileset".format(self.pid.pid_type),
             pid_value=self.pid.pid_value,
             _external=True,
         )

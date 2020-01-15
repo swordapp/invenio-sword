@@ -22,9 +22,10 @@ SWORD_ENDPOINTS = {
         "record_class": "invenio_sword.api:Deposit",
         "default_media_type": "application/ld+json",
         "service_document_route": "/sword/service-document",
-        "deposit_status_route": "/sword/deposit/<{}:pid_value>".format(_PID),
-        "deposit_metadata_route": "/sword/deposit/<{}:pid_value>/metadata".format(_PID),
-        "deposit_fileset_route": "/sword/deposit/<{}:pid_value>/fileset".format(_PID),
+        "item_route": "/sword/deposit/<{}:pid_value>".format(_PID),
+        "metadata_route": "/sword/deposit/<{}:pid_value>/metadata".format(_PID),
+        "fileset_route": "/sword/deposit/<{}:pid_value>/fileset".format(_PID),
+        "file_route": "/sword/deposit/<{}:pid_value>/file/<path:key>".format(_PID),
     }
     for name, options in DEPOSIT_REST_ENDPOINTS.items()
 }

@@ -12,6 +12,9 @@ from invenio_db import db
 from invenio_deposit.search import DepositSearch
 from invenio_deposit.views.rest import create_error_handlers
 from invenio_files_rest.models import ObjectVersion
+from invenio_files_rest.serializer import json_serializer
+from invenio_files_rest.serializer import serializer_mapping
+from invenio_records_files.views import RecordObjectResource
 from invenio_records_rest.utils import obj_or_import_string
 from invenio_records_rest.views import need_record_permission
 from invenio_records_rest.views import pass_record
@@ -191,7 +194,7 @@ class ServiceDocumentView(SWORDDepositView):
 
 
 class DepositStatusView(SWORDDepositView):
-    view_name = "{}_deposit_status"
+    view_name = "{}_item"
 
     @pass_record
     @need_record_permission("read_permission_factory")
@@ -212,7 +215,7 @@ class DepositStatusView(SWORDDepositView):
 
 
 class DepositMetadataView(SWORDDepositView):
-    view_name = "{}_deposit_metadata"
+    view_name = "{}_metadata"
 
     @pass_record
     @need_record_permission("read_permission_factory")
@@ -253,7 +256,7 @@ class DepositMetadataView(SWORDDepositView):
 
 
 class DepositFilesetView(SWORDDepositView):
-    view_name = "{}_deposit_fileset"
+    view_name = "{}_fileset"
 
     @pass_record
     @need_record_permission("update_permission_factory")
@@ -277,6 +280,10 @@ class DepositFilesetView(SWORDDepositView):
             else None,
         )
         return Response(status=HTTPStatus.NO_CONTENT)
+
+
+class DepositFileView(RecordObjectResource):
+    view_name = "{}_file"
 
 
 def create_blueprint(endpoints):
@@ -340,30 +347,44 @@ def create_blueprint(endpoints):
         )
 
         blueprint.add_url_rule(
-            options["deposit_status_route"],
+            options["item_route"],
             endpoint=DepositStatusView.view_name.format(endpoint),
             view_func=DepositStatusView.as_view(
-                "service",
+                "item",
                 serializers={"application/ld+json": serializers.jsonld_serializer,},
                 ctx=ctx,
             ),
         )
         blueprint.add_url_rule(
-            options["deposit_metadata_route"],
+            options["metadata_route"],
             endpoint=DepositMetadataView.view_name.format(endpoint),
             view_func=DepositMetadataView.as_view(
-                "service",
+                "metadata",
                 serializers={"application/ld+json": serializers.jsonld_serializer,},
                 ctx=ctx,
             ),
         )
         blueprint.add_url_rule(
-            options["deposit_fileset_route"],
+            options["fileset_route"],
             endpoint=DepositFilesetView.view_name.format(endpoint),
             view_func=DepositFilesetView.as_view(
-                "service",
+                "fileset",
                 serializers={"application/ld+json": serializers.jsonld_serializer,},
                 ctx=ctx,
+            ),
+        )
+        blueprint.add_url_rule(
+            options["file_route"],
+            endpoint=DepositFileView.view_name.format(endpoint),
+            view_func=DepositFileView.as_view(
+                name="file",
+                serializers={
+                    "application/json": partial(
+                        json_serializer,
+                        view_name="{}_object_api".format(endpoint),
+                        serializer_mapping=serializer_mapping,
+                    )
+                },
             ),
         )
 

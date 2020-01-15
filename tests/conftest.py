@@ -56,6 +56,7 @@ from invenio_deposit.api import Deposit
 from invenio_deposit.scopes import write_scope
 from invenio_files_rest import InvenioFilesREST
 from invenio_files_rest.models import Location
+from invenio_files_rest.views import blueprint as files_rest_blueprint
 from invenio_files_rest.views import blueprint as invenio_files_rest_blueprint
 from invenio_indexer import InvenioIndexer
 from invenio_jsonschemas import InvenioJSONSchemas
@@ -142,6 +143,10 @@ def base_app(request, test_metadata_format):
             OAUTHLIB_INSECURE_TRANSPORT=True,
             OAUTH2_CACHE_TYPE="simple",
             ACCOUNTS_JWT_ENABLE=False,
+            # This allows access to files across all of invenio-files-rest
+            FILES_REST_PERMISSION_FACTORY=lambda *a, **kw: type(
+                "Allow", (object,), {"can": lambda self: True}
+            )(),
         )
         Babel(app_)
         FlaskCeleryExt(app_)
@@ -153,7 +158,6 @@ def base_app(request, test_metadata_format):
         InvenioIndexer(app_)
         InvenioJSONSchemas(app_)
         InvenioOAuth2Server(app_)
-        InvenioFilesREST(app_)
         InvenioPIDStore(app_)
         InvenioRecords(app_)
         search = InvenioSearch(app_)
@@ -168,7 +172,11 @@ def base_app(request, test_metadata_format):
     InvenioREST(api_app)
     InvenioOAuth2ServerREST(api_app)
     InvenioRecordsREST(api_app)
+    InvenioFilesREST(api_app)
     InvenioSword(api_app)
+    api_app.register_blueprint(files_rest_blueprint)
+    # api_app.register_blueprint(records_files_bp(api_app))
+    api_app.register_blueprint(records_rest_bp(api_app))
     api_app.register_blueprint(invenio_files_rest_blueprint)
 
     # Register a test (alternate) metadata format
@@ -187,7 +195,6 @@ def base_app(request, test_metadata_format):
     InvenioSearchUI(app)
     InvenioRecordsUI(app)
     app.register_blueprint(records_ui_bp(app))
-    app.register_blueprint(records_rest_bp(app))
     app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {"/api": api_app.wsgi_app})
 
     with app.app_context():
@@ -216,7 +223,7 @@ def app(base_app):
 def api(base_app):
     """Yield the REST API application in its context."""
     api = get_method_self(base_app.wsgi_app.mounts["/api"])
-    api.register_blueprint(records_rest_bp(api))
+    # api.register_blueprint(records_rest_bp(api))
     with api.app_context():
         yield api
 

@@ -131,9 +131,9 @@ def test_put_metadata_document(api, users, location, es):
 @pytest.mark.parametrize(
     "view_name,status_code,additional_headers",
     [
-        ("invenio_sword.depid_deposit_metadata", HTTPStatus.NO_CONTENT, {}),
+        ("invenio_sword.depid_metadata", HTTPStatus.NO_CONTENT, {}),
         (
-            "invenio_sword.depid_deposit_status",
+            "invenio_sword.depid_item",
             HTTPStatus.OK,
             {"Content-Disposition": "attachment; metadata=true"},
         ),
