@@ -32,10 +32,8 @@ from invenio_files_rest.models import Bucket
 from invenio_files_rest.models import ObjectVersion
 from invenio_records.models import RecordMetadata
 
-fixtures_path = os.path.join(os.path.dirname(__file__), "fixtures")
 
-
-def test_post_service_document_with_bagit_bag(api, users, location):
+def test_post_service_document_with_bagit_bag(api, users, location, fixtures_path):
     with api.test_request_context(), api.test_client() as client:
         client.post(
             url_for_security("login"),
@@ -100,7 +98,7 @@ def test_post_service_document_with_bagit_bag(api, users, location):
     ],
 )
 def test_post_service_document_with_broken_bag(
-    api, users, location, filename, status_code
+    api, users, location, filename, status_code, fixtures_path
 ):
     with api.test_request_context(), api.test_client() as client:
         client.post(
@@ -121,7 +119,9 @@ def test_post_service_document_with_broken_bag(
         assert response.status_code == status_code
 
 
-def test_post_service_document_with_incorrect_content_type(api, users, location):
+def test_post_service_document_with_incorrect_content_type(
+    api, users, location, fixtures_path
+):
     with api.test_request_context(), api.test_client() as client:
         client.post(
             url_for_security("login"),

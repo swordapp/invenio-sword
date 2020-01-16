@@ -23,9 +23,7 @@ def test_get_fileset_url(api, users, location, es):
         time.sleep(1)
 
         response = client.get(
-            url_for(
-                "invenio_sword.depid_deposit_fileset", pid_value=record.pid.pid_value
-            )
+            url_for("invenio_sword.depid_fileset", pid_value=record.pid.pid_value)
         )
         assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
 
@@ -49,9 +47,7 @@ def test_put_fileset_url(api, users, location, es):
         time.sleep(1)
 
         response = client.put(
-            url_for(
-                "invenio_sword.depid_deposit_fileset", pid_value=record.pid.pid_value
-            ),
+            url_for("invenio_sword.depid_fileset", pid_value=record.pid.pid_value),
             data=b"hello again",
             headers={
                 "Content-Disposition": "attachment; filename=new-file.txt",
@@ -97,9 +93,7 @@ def test_post_fileset_url(api, users, location, es):
         time.sleep(1)
 
         response = client.post(
-            url_for(
-                "invenio_sword.depid_deposit_fileset", pid_value=record.pid.pid_value
-            ),
+            url_for("invenio_sword.depid_fileset", pid_value=record.pid.pid_value),
             data=b"hello again",
             headers={
                 "Content-Disposition": "attachment; filename=new-file.txt",
