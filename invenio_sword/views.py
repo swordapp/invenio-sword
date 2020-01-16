@@ -130,6 +130,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
                 else {}
             ),
         )
+
         if not replace and record.sword_metadata:
             try:
                 metadata = record.sword_metadata + metadata
