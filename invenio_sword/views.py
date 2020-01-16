@@ -43,7 +43,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             serializers,
             default_media_type=ctx.get("default_media_type"),
             *args,
-            **kwargs
+            **kwargs,
         )
         for key, value in ctx.items():
             setattr(self, key, value)
@@ -119,10 +119,16 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             raise BadRequest(
                 "Metadata-Format must be JSON-based to use Metadata+By-Reference deposit"
             )
+
+        content_type, content_type_options = parse_options_header(request.content_type)
         metadata = self.metadata_class.from_document(
             source,
-            content_type=request.content_type,
-            encoding=request.content_encoding,
+            content_type=content_type,
+            **(
+                {"encoding": content_type_options["charset"]}
+                if "charset" in content_type_options
+                else {}
+            ),
         )
         if not replace and record.sword_metadata:
             try:

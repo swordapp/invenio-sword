@@ -29,7 +29,7 @@ class SWORDMetadata(JSONMetadata):
         content_type: str,
         encoding: str = "utf_8",
     ) -> SWORDMetadata:
-        if content_type != cls.content_type:
+        if content_type not in (cls.content_type, "application/json"):
             raise UnsupportedMediaType(
                 "Content-Type must be {}".format(cls.content_type)
             )
