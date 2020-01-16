@@ -108,6 +108,13 @@ class SWORDDeposit(Deposit):
                     "description": "the item is currently inProgress",
                 }
             )
+        elif self["_deposit"].get("status") == "published":
+            states.append(
+                {
+                    "@id": "http://purl.org/net/sword/3.0/state/accepted",
+                    "description": "the item is currently accepted",
+                }
+            )
         return states
 
     @property
