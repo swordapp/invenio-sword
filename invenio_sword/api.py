@@ -11,6 +11,8 @@ from invenio_deposit.api import Deposit
 from invenio_pidstore.resolver import Resolver
 from invenio_records_files.api import FileObject
 
+from invenio_sword.enum import ObjectTagKey
+
 if TYPE_CHECKING:
     from .metadata import Metadata  # pragma: nocover
 
@@ -58,16 +60,43 @@ class SWORDDeposit(Deposit):
                 "deleteFiles": True,
                 "deleteObject": True,
             },
-            "links": [
-                {
-                    "@id": file.rest_file_url,
-                    "rel": ["http://purl.org/net/sword/3.0/terms/fileSetFile"],
-                    "contentType": file.obj.mimetype,
-                    "status": "http://purl.org/net/sword/3.0/filestate/ingested",
-                }
-                for file in self.files
-            ],
+            "links": self.links,
         }
+
+    @property
+    def links(self):
+
+        links = []
+        for file in self.files:
+            link = {
+                "@id": file.rest_file_url,
+                "contentType": file.obj.mimetype,
+                "status": "http://purl.org/net/sword/3.0/filestate/ingested",
+            }
+
+            tags = {tag.key: tag.value for tag in file.tags}
+            rels = set()
+            if tags.get(ObjectTagKey.OriginalDeposit.value) == "true":
+                rels.add("http://purl.org/net/sword/3.0/terms/originalDeposit")
+            if tags.get(ObjectTagKey.FileSetFile.value) == "true":
+                rels.add("http://purl.org/net/sword/3.0/terms/fileSetFile")
+            derived_from = tags.get(ObjectTagKey.DerivedFrom.value)
+            if derived_from:
+                rels.add("http://purl.org/net/sword/3.0/terms/derivedResource")
+                link["derivedFrom"] = url_for(
+                    "invenio_sword.{}_file".format(self.pid.pid_type),
+                    pid_value=self.pid.pid_value,
+                    key=derived_from,
+                    _external=True,
+                )
+            if ObjectTagKey.Packaging.value in tags:
+                link["packaging"] = tags[ObjectTagKey.Packaging.value]
+
+            link["rels"] = sorted(rels)
+
+            links.append(link)
+
+        return links
 
     @property
     def sword_states(self):
