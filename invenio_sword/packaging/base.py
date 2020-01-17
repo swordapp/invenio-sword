@@ -3,6 +3,8 @@ from invenio_sword.typing import BytesReader
 
 
 class Packaging:
+    packaging_name: str
+
     def ingest(
         self,
         *,
