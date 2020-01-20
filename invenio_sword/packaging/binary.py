@@ -4,6 +4,7 @@ from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
 
 from ..api import SWORDDeposit
+from .base import IngestResult
 from .base import Packaging
 from invenio_sword.enum import ObjectTagKey
 from invenio_sword.typing import BytesReader
@@ -44,4 +45,4 @@ class BinaryPackaging(Packaging):
             value="true",
         )
 
-        return {filename}
+        return IngestResult(object_version)

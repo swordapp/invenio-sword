@@ -8,6 +8,7 @@ from flask import current_app
 from flask import redirect
 from flask import request
 from flask import Response
+from flask import url_for
 from invenio_db import db
 from invenio_deposit.search import DepositSearch
 from invenio_deposit.views.rest import create_error_handlers
@@ -30,6 +31,8 @@ from werkzeug.utils import cached_property
 from . import serializers
 from .api import SWORDDeposit
 from invenio_sword.metadata import JSONMetadata
+from invenio_sword.metadata import Metadata
+from invenio_sword.packaging.base import IngestResult
 from invenio_sword.typing import BytesReader
 
 
@@ -79,7 +82,11 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         record["_deposit"]["status"] = "draft" if in_progress else "published"
         return record
 
-    def update_deposit(self, record: SWORDDeposit, replace: bool = True) -> None:
+    def update_deposit(
+        self, record: SWORDDeposit, replace: bool = True
+    ) -> typing.Optional[typing.Union[Metadata, IngestResult]]:
+        result: typing.Optional[typing.Union[Metadata, IngestResult]] = None
+
         content_disposition, content_disposition_options = parse_options_header(
             request.headers.get("Content-Disposition", "")
         )
@@ -89,9 +96,11 @@ class SWORDDepositView(ContentNegotiatedMethodView):
 
         if metadata_deposit:
             if by_reference_deposit:
-                self.set_metadata(record, request.json["metadata"], replace=replace)
+                result = self.set_metadata(
+                    record, request.json["metadata"], replace=replace
+                )
             else:
-                self.set_metadata(record, request.stream, replace=replace)
+                result = self.set_metadata(record, request.stream, replace=replace)
 
         if by_reference_deposit:
             # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
@@ -100,19 +109,23 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         if not (metadata_deposit or by_reference_deposit) and (
             request.content_type or request.content_length
         ):
-            self.set_fileset_from_stream(record, request.stream, replace=replace)
+            result = self.set_fileset_from_stream(
+                record, request.stream, replace=replace
+            )
         else:
             self.set_fileset_from_stream(record, None, replace=replace)
 
         record.commit()
         db.session.commit()
 
+        return result
+
     def set_metadata(
         self,
         record: SWORDDeposit,
         source: typing.Union[BytesReader, dict],
         replace: bool = True,
-    ):
+    ) -> Metadata:
         if isinstance(source, dict) and not isinstance(
             self.metadata_class, JSONMetadata
         ):
@@ -140,30 +153,37 @@ class SWORDDepositView(ContentNegotiatedMethodView):
                 )
         record.sword_metadata = metadata
 
+        return metadata
+
     def set_fileset_from_stream(
         self, record: SWORDDeposit, stream: typing.Optional[BytesReader], replace=True
-    ):
+    ) -> IngestResult:
         if stream:
             content_disposition, content_disposition_options = parse_options_header(
                 request.headers.get("Content-Disposition", "")
             )
             content_type, _ = parse_options_header(request.content_type)
             filename = content_disposition_options.get("filename")
-            ingested_keys = self.packaging_class().ingest(
+            ingest_result: IngestResult = self.packaging_class().ingest(
                 record=record,
                 stream=stream,
                 filename=filename,
                 content_type=content_type,
             )
         else:
-            ingested_keys = set()
+            ingest_result = IngestResult(None)
 
         if replace:
+            ingested_keys = [
+                object_version.key for object_version in ingest_result.ingested_objects
+            ]
             # Remove previous objects
             for object_version in ObjectVersion.query.filter_by(
                 bucket=record.bucket
             ).filter(ObjectVersion.key.notin_(ingested_keys)):
                 ObjectVersion.delete(record.bucket, object_version.key)
+
+        return ingest_result
 
 
 class ServiceDocumentView(SWORDDepositView):
@@ -211,8 +231,21 @@ class DepositStatusView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def post(self, pid, record: SWORDDeposit):
-        self.update_deposit(record, replace=False)
-        return record.get_status_as_jsonld()
+        result = self.update_deposit(record, replace=False)
+
+        response = Response(status=HTTPStatus.CREATED)
+
+        if isinstance(result, IngestResult):
+            response.headers["Location"] = url_for(
+                "invenio_sword.{}_file".format(pid.pid_type),
+                pid_value=pid.pid_value,
+                key=result.original_deposit.key,
+                _external=True,
+            )
+        elif isinstance(result, Metadata):
+            response.headers["Location"] = record.sword_metadata_url
+
+        return response
 
     @pass_record
     @need_record_permission("update_permission_factory")
