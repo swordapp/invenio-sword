@@ -167,8 +167,8 @@ class SWORDDeposit(Deposit):
     @sword_metadata.setter
     def sword_metadata(self, metadata: Optional[Metadata]):
         if metadata is None:
-            del self["swordMetadataFormat"]
-            del self["swordMetadata"]
+            self.pop("swordMetadataFormat", None)
+            self.pop("swordMetadata", None)
         else:
             for metadata_format, metadata_cls in current_app.config["SWORD_ENDPOINTS"][
                 self.pid.pid_type

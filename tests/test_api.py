@@ -55,7 +55,6 @@ def test_deposit_empty(api, users, location):
         _, record = pid_resolver.resolve(pid_value)
         assert dict(record) == {
             "metadata": {},
-            "swordMetadata": {},
             "$schema": "http://localhost/schemas/deposits/deposit-v1.0.0.json",
             "_deposit": {
                 "id": pid_value,

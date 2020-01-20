@@ -78,7 +78,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
 
     def create_deposit(self) -> SWORDDeposit:
         in_progress = request.headers.get("In-Progress") == "true"
-        record = SWORDDeposit.create({"metadata": {}, "swordMetadata": {},})
+        record = SWORDDeposit.create({"metadata": {}})
         record["_deposit"]["status"] = "draft" if in_progress else "published"
         return record
 
@@ -101,6 +101,8 @@ class SWORDDepositView(ContentNegotiatedMethodView):
                 )
             else:
                 result = self.set_metadata(record, request.stream, replace=replace)
+        elif replace:
+            record.sword_metadata = None
 
         if by_reference_deposit:
             # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
