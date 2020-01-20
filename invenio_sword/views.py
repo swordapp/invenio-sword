@@ -95,7 +95,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         by_reference_deposit = content_disposition_options.get("by-reference") == "true"
 
         if metadata_deposit:
-            if by_reference_deposit:
+            if by_reference_deposit:  # pragma: nocover
                 result = self.set_metadata(
                     record, request.json["metadata"], replace=replace
                 )
@@ -104,7 +104,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         elif replace:
             record.sword_metadata = None
 
-        if by_reference_deposit:
+        if by_reference_deposit:  # pragma: nocover
             # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
             raise NotImplemented  # noqa: F901
 
