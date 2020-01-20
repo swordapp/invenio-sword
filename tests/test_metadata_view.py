@@ -1,6 +1,5 @@
 import io
 import json
-import time
 from http import HTTPStatus
 
 import pytest
@@ -23,7 +22,6 @@ def test_get_metadata_document(api, users, location, es):
         record.sword_metadata = SWORDMetadata({"dc:title": "Deposit title"})
         record.commit()
         db.session.commit()
-        time.sleep(1)
 
         response = client.get("/sword/deposit/{}".format(record.pid.pid_value))
         assert response.status_code == HTTPStatus.OK
@@ -52,7 +50,6 @@ def test_get_metadata_document_when_not_available(api, users, location, es):
         record = SWORDDeposit.create({})
         record.commit()
         db.session.commit()
-        time.sleep(1)
 
         status_response = client.get("/sword/deposit/{}".format(record.pid.pid_value))
         assert status_response.status_code == HTTPStatus.OK
@@ -71,7 +68,6 @@ def test_put_metadata_document_without_body(api, users, location, es):
         record = SWORDDeposit.create({})
         record.commit()
         db.session.commit()
-        time.sleep(1)
 
         response = client.put("/sword/deposit/{}/metadata".format(record.pid.pid_value))
         assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
@@ -86,7 +82,6 @@ def test_put_metadata_document_invalid_json(api, users, location, es):
         record = SWORDDeposit.create({})
         record.commit()
         db.session.commit()
-        time.sleep(1)
 
         response = client.put(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value),
@@ -107,7 +102,6 @@ def test_put_metadata_document(api, users, location, es):
         record = SWORDDeposit.create({})
         record.commit()
         db.session.commit()
-        time.sleep(1)
 
         response = client.put(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value),
@@ -157,7 +151,6 @@ def test_post_metadata_document_to_append(
         )
         record.commit()
         db.session.commit()
-        time.sleep(1)
 
         response = client.post(
             url_for(view_name, pid_value=record.pid.pid_value),
@@ -208,7 +201,6 @@ def test_post_metadata_document_with_inconsistent_metadata_format(
         )
         record.commit()
         db.session.commit()
-        time.sleep(1)
 
         response = client.post(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value),
@@ -243,7 +235,6 @@ def test_put_metadata_document_with_unsupported_format(api, users, location, es)
         record = SWORDDeposit.create({})
         record.commit()
         db.session.commit()
-        time.sleep(1)
 
         response = client.put(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value),
@@ -266,7 +257,6 @@ def test_delete_metadata_document(api, users, location, es):
         record.sword_metadata = SWORDMetadata({"dc:title": "Deposit title"})
         record.commit()
         db.session.commit()
-        time.sleep(1)
 
         assert record.sword_metadata_format is not None
         assert record.sword_metadata is not None

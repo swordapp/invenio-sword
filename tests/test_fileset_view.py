@@ -1,5 +1,4 @@
 import io
-import time
 from http import HTTPStatus
 
 from flask import url_for
@@ -19,8 +18,6 @@ def test_get_fileset_url(api, users, location, es):
         record = SWORDDeposit.create({})
         record.commit()
         db.session.commit()
-
-        time.sleep(1)
 
         response = client.get(
             url_for("invenio_sword.depid_fileset", pid_value=record.pid.pid_value)
@@ -43,8 +40,6 @@ def test_put_fileset_url(api, users, location, es):
             mimetype="text/plain",
         )
         db.session.commit()
-
-        time.sleep(1)
 
         response = client.put(
             url_for("invenio_sword.depid_fileset", pid_value=record.pid.pid_value),
@@ -89,8 +84,6 @@ def test_post_fileset_url(api, users, location, es):
             mimetype="text/plain",
         )
         db.session.commit()
-
-        time.sleep(1)
 
         response = client.post(
             url_for("invenio_sword.depid_fileset", pid_value=record.pid.pid_value),

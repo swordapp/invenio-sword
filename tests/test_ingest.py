@@ -1,5 +1,4 @@
 import os
-import time
 from http import HTTPStatus
 
 import pytest
@@ -110,8 +109,6 @@ def test_ingest(
                 },
             )
         assert response.status_code == HTTPStatus.CREATED
-
-        time.sleep(1)
 
         response = client.get(response.headers["Location"])
 

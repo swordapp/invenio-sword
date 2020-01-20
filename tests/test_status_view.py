@@ -1,5 +1,4 @@
 import io
-import time
 from http import HTTPStatus
 
 from flask_security import url_for_security
@@ -24,7 +23,6 @@ def test_get_status_document(api, users, location, es):
         record = SWORDDeposit.create({})
         record.commit()
         db.session.commit()
-        time.sleep(1)
 
         ObjectVersion.create(
             record.bucket,
@@ -48,7 +46,6 @@ def test_put_status_document(api, users, location, es):
         record = SWORDDeposit.create({})
         record.commit()
         db.session.commit()
-        time.sleep(1)
 
         ObjectVersion.create(
             record.bucket,
