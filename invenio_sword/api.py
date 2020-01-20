@@ -76,14 +76,14 @@ class SWORDDeposit(Deposit):
             }
 
             tags = {tag.key: tag.value for tag in file.tags}
-            rels = set()
+            rel = set()
             if tags.get(ObjectTagKey.OriginalDeposit.value) == "true":
-                rels.add("http://purl.org/net/sword/3.0/terms/originalDeposit")
+                rel.add("http://purl.org/net/sword/3.0/terms/originalDeposit")
             if tags.get(ObjectTagKey.FileSetFile.value) == "true":
-                rels.add("http://purl.org/net/sword/3.0/terms/fileSetFile")
+                rel.add("http://purl.org/net/sword/3.0/terms/fileSetFile")
             derived_from = tags.get(ObjectTagKey.DerivedFrom.value)
             if derived_from:
-                rels.add("http://purl.org/net/sword/3.0/terms/derivedResource")
+                rel.add("http://purl.org/net/sword/3.0/terms/derivedResource")
                 link["derivedFrom"] = url_for(
                     "invenio_sword.{}_file".format(self.pid.pid_type),
                     pid_value=self.pid.pid_value,
@@ -93,7 +93,7 @@ class SWORDDeposit(Deposit):
             if ObjectTagKey.Packaging.value in tags:
                 link["packaging"] = tags[ObjectTagKey.Packaging.value]
 
-            link["rels"] = sorted(rels)
+            link["rel"] = sorted(rel)
 
             links.append(link)
 

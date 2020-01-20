@@ -11,7 +11,7 @@ original_deposit = (
 
 packaged_content = {
     "example.svg": {
-        "rels": [
+        "rel": [
             "http://purl.org/net/sword/3.0/terms/derivedResource",
             "http://purl.org/net/sword/3.0/terms/fileSetFile",
         ],
@@ -20,7 +20,7 @@ packaged_content = {
         "derivedFrom": original_deposit,
     },
     "hello.txt": {
-        "rels": [
+        "rel": [
             "http://purl.org/net/sword/3.0/terms/derivedResource",
             "http://purl.org/net/sword/3.0/terms/fileSetFile",
         ],
@@ -41,7 +41,7 @@ packaged_content = {
             "image/svg+xml",
             {
                 "binary.svg": {
-                    "rels": [
+                    "rel": [
                         "http://purl.org/net/sword/3.0/terms/fileSetFile",
                         "http://purl.org/net/sword/3.0/terms/originalDeposit",
                     ],
@@ -57,7 +57,7 @@ packaged_content = {
             "application/zip",
             {
                 original_deposit: {
-                    "rels": ["http://purl.org/net/sword/3.0/terms/originalDeposit"],
+                    "rel": ["http://purl.org/net/sword/3.0/terms/originalDeposit"],
                     "contentType": "application/zip",
                     "status": "http://purl.org/net/sword/3.0/filestate/ingested",
                     "packaging": "http://purl.org/net/sword/3.0/package/SimpleZip",
@@ -72,7 +72,7 @@ packaged_content = {
             "application/zip",
             {
                 original_deposit: {
-                    "rels": ["http://purl.org/net/sword/3.0/terms/originalDeposit"],
+                    "rel": ["http://purl.org/net/sword/3.0/terms/originalDeposit"],
                     "contentType": "application/zip",
                     "status": "http://purl.org/net/sword/3.0/filestate/ingested",
                     "packaging": "http://purl.org/net/sword/3.0/package/SWORDBagIt",
@@ -119,9 +119,8 @@ def test_ingest(
             print(link)
             key = link["@id"].split("/", 7)[-1]
             if (
-                "http://purl.org/net/sword/3.0/terms/originalDeposit" in link["rels"]
-                and "http://purl.org/net/sword/3.0/terms/fileSetFile"
-                not in link["rels"]
+                "http://purl.org/net/sword/3.0/terms/originalDeposit" in link["rel"]
+                and "http://purl.org/net/sword/3.0/terms/fileSetFile" not in link["rel"]
             ):
                 expected_link = expected_links[original_deposit]
             else:
