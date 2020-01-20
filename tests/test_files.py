@@ -1,5 +1,4 @@
 import os
-import time
 from http import HTTPStatus
 
 from flask_security import url_for_security
@@ -31,8 +30,6 @@ def test_file_get(fixtures_path, location, es, api, users):
 
         status_document = bagit_record.get_status_as_jsonld()
         assert len(status_document["links"]) > 0
-
-        time.sleep(1)
 
         expected_content = []
         for file in bagit_record.files:

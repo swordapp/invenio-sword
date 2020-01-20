@@ -21,7 +21,7 @@ def test_parse_document(metadata_document):
 
 def test_parse_document_with_wrong_content_type(metadata_document):
     with pytest.raises(UnsupportedMediaType):
-        SWORDMetadata.from_document(metadata_document, content_type="application/json")
+        SWORDMetadata.from_document(metadata_document, content_type="text/yaml")
 
 
 def test_update_record(metadata_document):

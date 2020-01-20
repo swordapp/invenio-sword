@@ -9,6 +9,7 @@ from invenio_files_rest.models import ObjectVersionTag
 from werkzeug.exceptions import UnsupportedMediaType
 
 from ..api import SWORDDeposit
+from .base import IngestResult
 from .base import Packaging
 from invenio_sword.enum import ObjectTagKey
 from invenio_sword.typing import BytesReader
@@ -32,6 +33,7 @@ class SimpleZipPackaging(Packaging):
             raise UnsupportedMediaType
 
         original_deposit_filename = "original-deposit-{}.zip".format(uuid.uuid4())
+        unpackaged_objects = []
 
         with tempfile.TemporaryFile() as f:
             shutil.copyfileobj(stream, f)
@@ -57,6 +59,7 @@ class SimpleZipPackaging(Packaging):
                         key=ObjectTagKey.DerivedFrom.value,
                         value=original_deposit_filename,
                     )
+                    unpackaged_objects.append(object_version)
 
             f.seek(0)
 
@@ -77,4 +80,4 @@ class SimpleZipPackaging(Packaging):
                 value=self.packaging_name,
             )
 
-        return names | {original_deposit_filename}
+        return IngestResult(original_deposit, unpackaged_objects)

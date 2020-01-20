@@ -42,6 +42,7 @@ class SWORDDeposit(Deposit):
 
     def get_status_as_jsonld(self):
         return {
+            "@id": self.sword_status_url,
             "@type": "Status",
             "metadata": {"@id": self.sword_metadata_url,},
             "fileSet": {"@id": self.sword_fileset_url,},
@@ -75,14 +76,14 @@ class SWORDDeposit(Deposit):
             }
 
             tags = {tag.key: tag.value for tag in file.tags}
-            rels = set()
+            rel = set()
             if tags.get(ObjectTagKey.OriginalDeposit.value) == "true":
-                rels.add("http://purl.org/net/sword/3.0/terms/originalDeposit")
+                rel.add("http://purl.org/net/sword/3.0/terms/originalDeposit")
             if tags.get(ObjectTagKey.FileSetFile.value) == "true":
-                rels.add("http://purl.org/net/sword/3.0/terms/fileSetFile")
+                rel.add("http://purl.org/net/sword/3.0/terms/fileSetFile")
             derived_from = tags.get(ObjectTagKey.DerivedFrom.value)
             if derived_from:
-                rels.add("http://purl.org/net/sword/3.0/terms/derivedResource")
+                rel.add("http://purl.org/net/sword/3.0/terms/derivedResource")
                 link["derivedFrom"] = url_for(
                     "invenio_sword.{}_file".format(self.pid.pid_type),
                     pid_value=self.pid.pid_value,
@@ -92,7 +93,7 @@ class SWORDDeposit(Deposit):
             if ObjectTagKey.Packaging.value in tags:
                 link["packaging"] = tags[ObjectTagKey.Packaging.value]
 
-            link["rels"] = sorted(rels)
+            link["rel"] = sorted(rel)
 
             links.append(link)
 
@@ -106,6 +107,13 @@ class SWORDDeposit(Deposit):
                 {
                     "@id": "http://purl.org/net/sword/3.0/state/inProgress",
                     "description": "the item is currently inProgress",
+                }
+            )
+        elif self["_deposit"].get("status") == "published":
+            states.append(
+                {
+                    "@id": "http://purl.org/net/sword/3.0/state/accepted",
+                    "description": "the item is currently accepted",
                 }
             )
         return states
@@ -159,8 +167,8 @@ class SWORDDeposit(Deposit):
     @sword_metadata.setter
     def sword_metadata(self, metadata: Optional[Metadata]):
         if metadata is None:
-            del self["swordMetadataFormat"]
-            del self["swordMetadata"]
+            self.pop("swordMetadataFormat", None)
+            self.pop("swordMetadata", None)
         else:
             for metadata_format, metadata_cls in current_app.config["SWORD_ENDPOINTS"][
                 self.pid.pid_type

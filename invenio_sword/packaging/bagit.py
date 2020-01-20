@@ -12,6 +12,7 @@ from werkzeug.exceptions import BadRequest
 from werkzeug.exceptions import NotImplemented
 from werkzeug.exceptions import UnsupportedMediaType
 
+from .base import IngestResult
 from .base import Packaging
 from invenio_sword.api import SWORDDeposit
 from invenio_sword.enum import ObjectTagKey
@@ -37,6 +38,7 @@ class SWORDBagItPackaging(Packaging):
             raise UnsupportedMediaType
 
         original_deposit_filename = "original-deposit-{}.zip".format(uuid.uuid4())
+        unpackaged_objects = []
 
         with tempfile.TemporaryDirectory() as path:
             try:
@@ -105,9 +107,8 @@ class SWORDBagItPackaging(Packaging):
                             key=ObjectTagKey.DerivedFrom.value,
                             value=original_deposit_filename,
                         )
-                return {
-                    name.split(os.path.sep, 1)[-1] for name in bag.payload_entries()
-                } | {original_deposit_filename}
+                        unpackaged_objects.append(object_version)
+                return IngestResult(original_deposit, unpackaged_objects)
             except bagit.BagValidationError as e:
                 raise BadRequest(e.message) from e
             except bagit.BagError as e:
