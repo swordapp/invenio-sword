@@ -42,6 +42,7 @@ class SWORDDeposit(Deposit):
 
     def get_status_as_jsonld(self):
         return {
+            "@id": self.sword_status_url,
             "@type": "Status",
             "metadata": {"@id": self.sword_metadata_url,},
             "fileSet": {"@id": self.sword_fileset_url,},
