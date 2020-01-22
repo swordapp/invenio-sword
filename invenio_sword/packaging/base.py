@@ -6,7 +6,7 @@ from invenio_files_rest.models import ObjectVersion
 
 from ..typing import BytesReader
 
-if typing.TYPE_CHECKING:
+if typing.TYPE_CHECKING:  # pragma: nocover
     from ..api import SWORDDeposit
 
 

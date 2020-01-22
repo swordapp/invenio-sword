@@ -16,7 +16,7 @@ from ..typing import BytesReader
 from .base import IngestResult
 from .base import Packaging
 
-if typing.TYPE_CHECKING:
+if typing.TYPE_CHECKING:  # pragma: nocover
     from ..api import SWORDDeposit
 
 __all__ = ["SimpleZipPackaging"]
