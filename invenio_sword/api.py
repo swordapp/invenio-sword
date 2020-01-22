@@ -158,10 +158,6 @@ class SWORDDeposit(Deposit):
     def original_deposit_key_prefix(self):
         return ".original-deposit-{}/".format(self.pid.pid_value)
 
-    @property
-    def sword_metadata(self):
-        raise NotImplementedError
-
     def set_metadata(
         self,
         source: typing.Optional[typing.Union[BytesReader, dict]],
