@@ -4,7 +4,12 @@ import pytest
 from werkzeug.exceptions import UnsupportedMediaType
 
 from invenio_sword.api import SWORDDeposit
+from invenio_sword.metadata import Metadata
 from invenio_sword.metadata import SWORDMetadata
+
+
+class OtherMetadata(Metadata):
+    pass
 
 
 def test_parse_document(metadata_document):
@@ -40,3 +45,24 @@ def test_metadata_bytes_roundtrip(metadata_document):
         metadata_document, content_type="application/ld+json"
     )
     assert json.loads(bytes(sword_metadata)) == sword_metadata.data
+
+
+def test_construct_from_dict(metadata_document):
+    data = json.load(metadata_document)
+    sword_metadata = SWORDMetadata(data)
+    assert sword_metadata.data == data
+
+
+def test_cant_add_to_other_metadata(metadata_document):
+    sword_metadata = SWORDMetadata.from_document(
+        metadata_document, content_type="application/ld+json"
+    )
+    other_metadata = OtherMetadata()
+
+    with pytest.raises(TypeError):
+        sword_metadata + other_metadata
+
+    with pytest.raises(TypeError):
+        other_metadata + sword_metadata
+
+    assert sword_metadata.__add__(other_metadata) == NotImplemented
