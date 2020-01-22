@@ -148,13 +148,24 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             ingested_keys = [
                 object_version.key for object_version in ingest_result.ingested_objects
             ]
-            # Remove previous objects from the fileset
-            for object_version in ObjectVersion.query.join(ObjectVersionTag).filter(
-                ObjectVersion.bucket == record.bucket,
-                ObjectVersion.is_head == true(),
-                ObjectVersion.file_id.isnot(None),
-                ObjectVersion.key.notin_(ingested_keys),
-                ObjectVersionTag.key == ObjectTagKey.FileSetFile.value,
+            # Remove previous objects associated with filesets, including original deposits, and anything that was
+            # derived from them
+            for object_version in (
+                ObjectVersion.query.join(ObjectVersionTag)
+                .filter(
+                    ObjectVersion.bucket == record.bucket,
+                    ObjectVersion.is_head == true(),
+                    ObjectVersion.file_id.isnot(None),
+                    ObjectVersion.key.notin_(ingested_keys),
+                    ObjectVersionTag.key.in_(
+                        [
+                            ObjectTagKey.FileSetFile.value,
+                            ObjectTagKey.DerivedFrom.value,
+                            ObjectTagKey.OriginalDeposit.value,
+                        ]
+                    ),
+                )
+                .distinct(ObjectVersion.key)
             ):
                 ObjectVersion.delete(record.bucket, object_version.key)
 

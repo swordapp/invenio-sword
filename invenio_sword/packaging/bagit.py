@@ -97,6 +97,7 @@ class SWORDBagItPackaging(Packaging):
                             metadata_f,
                             metadata_class=SWORDMetadata,
                             content_type="application/ld+json",
+                            derived_from=original_deposit_filename,
                             replace=True,
                         )
 

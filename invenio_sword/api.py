@@ -163,6 +163,7 @@ class SWORDDeposit(Deposit):
         source: typing.Optional[typing.Union[BytesReader, dict]],
         metadata_class: typing.Type[Metadata],
         content_type: str = None,
+        derived_from: str = None,
         replace: bool = True,
     ) -> typing.Optional[Metadata]:
         if isinstance(source, dict):
@@ -247,6 +248,12 @@ class SWORDDeposit(Deposit):
                 key=ObjectTagKey.MetadataFormat.value,
                 value=metadata_class.metadata_format,
             )
+            if derived_from:
+                ObjectVersionTag.create(
+                    object_version=object_version,
+                    key=ObjectTagKey.DerivedFrom.value,
+                    value=derived_from,
+                )
 
             return metadata
 
