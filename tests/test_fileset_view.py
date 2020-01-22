@@ -5,8 +5,10 @@ from flask import url_for
 from flask_security import url_for_security
 from invenio_db import db
 from invenio_files_rest.models import ObjectVersion
+from invenio_files_rest.models import ObjectVersionTag
 
 from invenio_sword.api import SWORDDeposit
+from invenio_sword.enum import ObjectTagKey
 
 
 def test_get_fileset_url(api, users, location, es):
@@ -33,11 +35,16 @@ def test_put_fileset_url(api, users, location, es):
         )
         record = SWORDDeposit.create({})
         record.commit()
-        ObjectVersion.create(
+        object_version = ObjectVersion.create(
             record.bucket,
             key="old-file.txt",
             stream=io.BytesIO(b"hello"),
             mimetype="text/plain",
+        )
+        ObjectVersionTag.create(
+            object_version=object_version,
+            key=ObjectTagKey.FileSetFile.value,
+            value="true",
         )
         db.session.commit()
 

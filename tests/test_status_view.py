@@ -4,8 +4,10 @@ from http import HTTPStatus
 from flask_security import url_for_security
 from invenio_db import db
 from invenio_files_rest.models import ObjectVersion
+from invenio_files_rest.models import ObjectVersionTag
 
 from invenio_sword.api import SWORDDeposit
+from invenio_sword.enum import ObjectTagKey
 
 
 def test_get_status_document_not_found(api, location, es):
@@ -47,11 +49,16 @@ def test_put_status_document(api, users, location, es):
         record.commit()
         db.session.commit()
 
-        ObjectVersion.create(
+        object_version = ObjectVersion.create(
             record.bucket,
             "file.n3",
             mimetype="text/n3",
             stream=io.BytesIO(b"1 _:a 2 ."),
+        )
+        ObjectVersionTag.create(
+            object_version=object_version,
+            key=ObjectTagKey.FileSetFile.value,
+            value="true",
         )
 
         response = client.put(

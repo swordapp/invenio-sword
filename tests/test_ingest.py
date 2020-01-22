@@ -115,9 +115,14 @@ def test_ingest(
 
         response = client.get(response.headers["Location"])
 
+        metadata_file_count = 0
+
         for link in response.json["links"]:
-            print(link)
             key = link["@id"].split("/", 7)[-1]
+            if key.startswith(".metadata-"):
+                metadata_file_count += 1
+                continue
+
             if (
                 "http://purl.org/net/sword/3.0/terms/originalDeposit" in link["rel"]
                 and "http://purl.org/net/sword/3.0/terms/fileSetFile" not in link["rel"]
@@ -133,7 +138,7 @@ def test_ingest(
 
             assert expected_link == link
 
-        assert len(response.json["links"]) == len(expected_links)
+        assert len(response.json["links"]) == len(expected_links) + metadata_file_count
 
 
 @pytest.mark.parametrize(

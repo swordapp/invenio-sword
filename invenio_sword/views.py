@@ -99,7 +99,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
                     request.json["metadata"], self.metadata_class, replace=replace,
                 )
             else:
-                record.set_metadata(
+                result = record.set_metadata(
                     request.stream,
                     self.metadata_class,
                     request.content_type,

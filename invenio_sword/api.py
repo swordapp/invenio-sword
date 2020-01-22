@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import io
+import json
 import logging
 import typing
 
@@ -12,11 +13,9 @@ from invenio_files_rest.models import ObjectVersionTag
 from invenio_pidstore.resolver import Resolver
 from invenio_records_files.api import FileObject
 from sqlalchemy import true
-from werkzeug.exceptions import BadRequest
 from werkzeug.exceptions import Conflict
 from werkzeug.http import parse_options_header
 
-from .metadata import JSONMetadata
 from .metadata import Metadata
 from invenio_sword.enum import ObjectTagKey
 from invenio_sword.metadata import SWORDMetadata
@@ -170,10 +169,8 @@ class SWORDDeposit(Deposit):
         content_type: str = None,
         replace: bool = True,
     ) -> typing.Optional[Metadata]:
-        if isinstance(source, dict) and not issubclass(metadata_class, JSONMetadata):
-            raise BadRequest(
-                "Metadata-Format must be JSON-based to use Metadata+By-Reference deposit"
-            )
+        if isinstance(source, dict):
+            source = io.BytesIO(json.dumps(source).encode("utf-8"))
 
         if not content_type:
             content_type = metadata_class.content_type
@@ -191,7 +188,6 @@ class SWORDDeposit(Deposit):
         )
 
         if source is None:
-
             if replace and existing_metadata_object:
                 ObjectVersion.delete(
                     bucket=existing_metadata_object.bucket,
@@ -207,9 +203,6 @@ class SWORDDeposit(Deposit):
             return None
         else:
             content_type, content_type_options = parse_options_header(content_type)
-
-            # if isinstance(source, dict):
-            assert issubclass(metadata_class, JSONMetadata)
 
             encoding = content_type_options.get("charset")
             if isinstance(encoding, str):
