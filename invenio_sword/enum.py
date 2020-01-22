@@ -6,3 +6,4 @@ class ObjectTagKey(enum.Enum):
     DerivedFrom = "invenio_sword.derivedFrom"
     FileSetFile = "invenio_sword.fileSetFile"
     Packaging = "invenio_sword.packaging"
+    MetadataFormat = "invenio_sword.metadataFormat"

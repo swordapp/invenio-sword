@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from werkzeug.exceptions import UnsupportedMediaType
 
@@ -33,9 +35,8 @@ def test_update_record(metadata_document):
     assert record["metadata"]["title_statement"]["title"] == "The title"
 
 
-def test_metadata_to_json(metadata_document):
+def test_metadata_bytes_roundtrip(metadata_document):
     sword_metadata = SWORDMetadata.from_document(
         metadata_document, content_type="application/ld+json"
     )
-    data = sword_metadata.to_json()
-    assert data == sword_metadata.data
+    assert json.loads(bytes(sword_metadata)) == sword_metadata.data

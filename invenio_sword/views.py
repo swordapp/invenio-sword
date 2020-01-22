@@ -13,27 +13,24 @@ from invenio_db import db
 from invenio_deposit.search import DepositSearch
 from invenio_deposit.views.rest import create_error_handlers
 from invenio_files_rest.models import ObjectVersion
-from invenio_files_rest.serializer import json_serializer
-from invenio_files_rest.serializer import serializer_mapping
+from invenio_files_rest.models import ObjectVersionTag
 from invenio_records_files.views import RecordObjectResource
 from invenio_records_rest.utils import obj_or_import_string
 from invenio_records_rest.views import need_record_permission
 from invenio_records_rest.views import pass_record
 from invenio_records_rest.views import verify_record_permission
 from invenio_rest import ContentNegotiatedMethodView
-from werkzeug.exceptions import BadRequest
-from werkzeug.exceptions import Conflict
-from werkzeug.exceptions import NotFound
+from sqlalchemy import true
 from werkzeug.exceptions import NotImplemented
 from werkzeug.http import parse_options_header
 from werkzeug.utils import cached_property
 
 from . import serializers
 from .api import SWORDDeposit
-from invenio_sword.metadata import JSONMetadata
-from invenio_sword.metadata import Metadata
-from invenio_sword.packaging.base import IngestResult
-from invenio_sword.typing import BytesReader
+from .enum import ObjectTagKey
+from .metadata import Metadata
+from .packaging import IngestResult
+from .typing import BytesReader
 
 
 class SWORDDepositView(ContentNegotiatedMethodView):
@@ -52,13 +49,15 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             setattr(self, key, value)
 
     @cached_property
-    def metadata_class(self):
-
-        metadata_format = request.headers.get(
+    def metadata_format(self):
+        return request.headers.get(
             "Metadata-Format", self.endpoint_options["default_metadata_format"]
         )
+
+    @cached_property
+    def metadata_class(self):
         try:
-            return self.endpoint_options["metadata_formats"][metadata_format]
+            return self.endpoint_options["metadata_formats"][self.metadata_format]
         except KeyError as e:
             raise NotImplemented(  # noqa: F901
                 "Unsupported Metadata-Format header value"
@@ -96,13 +95,18 @@ class SWORDDepositView(ContentNegotiatedMethodView):
 
         if metadata_deposit:
             if by_reference_deposit:  # pragma: nocover
-                result = self.set_metadata(
-                    record, request.json["metadata"], replace=replace
+                record.set_metadata(
+                    request.json["metadata"], self.metadata_class, replace=replace,
                 )
             else:
-                result = self.set_metadata(record, request.stream, replace=replace)
+                record.set_metadata(
+                    request.stream,
+                    self.metadata_class,
+                    request.content_type,
+                    replace=replace,
+                )
         elif replace:
-            record.sword_metadata = None
+            record.set_metadata(None, self.metadata_class, replace=replace)
 
         if by_reference_deposit:  # pragma: nocover
             # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
@@ -121,41 +125,6 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         db.session.commit()
 
         return result
-
-    def set_metadata(
-        self,
-        record: SWORDDeposit,
-        source: typing.Union[BytesReader, dict],
-        replace: bool = True,
-    ) -> Metadata:
-        if isinstance(source, dict) and not isinstance(
-            self.metadata_class, JSONMetadata
-        ):
-            raise BadRequest(
-                "Metadata-Format must be JSON-based to use Metadata+By-Reference deposit"
-            )
-
-        content_type, content_type_options = parse_options_header(request.content_type)
-        metadata = self.metadata_class.from_document(
-            source,
-            content_type=content_type,
-            **(
-                {"encoding": content_type_options["charset"]}
-                if "charset" in content_type_options
-                else {}
-            ),
-        )
-
-        if not replace and record.sword_metadata:
-            try:
-                metadata = record.sword_metadata + metadata
-            except TypeError:
-                raise Conflict(
-                    "Existing or new metadata is of wrong type for appending. Reconcile client-side and PUT instead"
-                )
-        record.sword_metadata = metadata
-
-        return metadata
 
     def set_fileset_from_stream(
         self, record: SWORDDeposit, stream: typing.Optional[BytesReader], replace=True
@@ -179,10 +148,14 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             ingested_keys = [
                 object_version.key for object_version in ingest_result.ingested_objects
             ]
-            # Remove previous objects
-            for object_version in ObjectVersion.query.filter_by(
-                bucket=record.bucket
-            ).filter(ObjectVersion.key.notin_(ingested_keys)):
+            # Remove previous objects from the fileset
+            for object_version in ObjectVersion.query.join(ObjectVersionTag).filter(
+                ObjectVersion.bucket == record.bucket,
+                ObjectVersion.is_head == true(),
+                ObjectVersion.file_id.isnot(None),
+                ObjectVersion.key.notin_(ingested_keys),
+                ObjectVersionTag.key == ObjectTagKey.FileSetFile.value,
+            ):
                 ObjectVersion.delete(record.bucket, object_version.key)
 
         return ingest_result
@@ -235,9 +208,8 @@ class DepositStatusView(SWORDDepositView):
     def post(self, pid, record: SWORDDeposit):
         result = self.update_deposit(record, replace=False)
 
-        response = Response(status=HTTPStatus.CREATED)
-
-        if isinstance(result, IngestResult):
+        if isinstance(result, IngestResult) and result.original_deposit:
+            response = Response(status=HTTPStatus.CREATED)
             response.headers["Location"] = url_for(
                 "invenio_sword.{}_file".format(pid.pid_type),
                 pid_value=pid.pid_value,
@@ -245,7 +217,10 @@ class DepositStatusView(SWORDDepositView):
                 _external=True,
             )
         elif isinstance(result, Metadata):
+            response = Response(status=HTTPStatus.CREATED)
             response.headers["Location"] = record.sword_metadata_url
+        else:
+            response = Response(status=HTTPStatus.NO_CONTENT)
 
         return response
 
@@ -255,6 +230,14 @@ class DepositStatusView(SWORDDepositView):
         self.update_deposit(record)
         return record.get_status_as_jsonld()
 
+    @pass_record
+    @need_record_permission("update_permission_factory")
+    def delete(self, pid, record: SWORDDeposit):
+        record.delete()
+        record.commit()
+        db.session.commit()
+        return record.get_status_as_jsonld()
+
 
 class DepositMetadataView(SWORDDepositView):
     view_name = "{}_metadata"
@@ -262,20 +245,17 @@ class DepositMetadataView(SWORDDepositView):
     @pass_record
     @need_record_permission("read_permission_factory")
     def get(self, pid, record: SWORDDeposit):
-        sword_metadata = record.sword_metadata
-        if not sword_metadata:
-            raise NotFound
-        response = Response(
-            sword_metadata.to_document(request.url),
-            content_type=sword_metadata.content_type,
-        )
-        response.headers["Metadata-Format"] = record.sword_metadata_format
-        return response
+        return {
+            "@id": record.sword_status_url,
+            **record.get("swordMetadata", {}),
+        }
 
     @pass_record
     @need_record_permission("update_permission_factory")
     def post(self, pid, record: SWORDDeposit):
-        self.set_metadata(record, request.stream, replace=False)
+        record.set_metadata(
+            request.stream, self.metadata_class, request.content_type, replace=False
+        )
         record.commit()
         db.session.commit()
         return Response(status=HTTPStatus.NO_CONTENT)
@@ -283,7 +263,7 @@ class DepositMetadataView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def put(self, pid, record: SWORDDeposit):
-        self.set_metadata(record, request.stream)
+        record.set_metadata(request.stream, self.metadata_class, request.content_type)
         record.commit()
         db.session.commit()
         return Response(status=HTTPStatus.NO_CONTENT)
@@ -291,7 +271,7 @@ class DepositMetadataView(SWORDDepositView):
     @pass_record
     @need_record_permission("delete_permission_factory")
     def delete(self, pid, record: SWORDDeposit):
-        record.sword_metadata = None
+        record.set_metadata(None, self.metadata_class)
         record.commit()
         db.session.commit()
         return Response(status=HTTPStatus.NO_CONTENT)
@@ -310,6 +290,8 @@ class DepositFilesetView(SWORDDepositView):
             else None,
             replace=False,
         )
+        record.commit()
+        db.session.commit()
         return Response(status=HTTPStatus.NO_CONTENT)
 
     @pass_record
@@ -321,6 +303,18 @@ class DepositFilesetView(SWORDDepositView):
             if (request.content_type or request.content_length)
             else None,
         )
+        record.commit()
+        db.session.commit()
+        return Response(status=HTTPStatus.NO_CONTENT)
+
+    @pass_record
+    @need_record_permission("update_permission_factory")
+    def delete(self, pid, record: SWORDDeposit):
+        self.set_fileset_from_stream(
+            record, None,
+        )
+        record.commit()
+        db.session.commit()
         return Response(status=HTTPStatus.NO_CONTENT)
 
 
@@ -421,10 +415,8 @@ def create_blueprint(endpoints):
             view_func=DepositFileView.as_view(
                 name="file",
                 serializers={
-                    "application/json": partial(
-                        json_serializer,
-                        view_name="{}_object_api".format(endpoint),
-                        serializer_mapping=serializer_mapping,
+                    "*/*": lambda *args, **kwargs: Response(
+                        status=HTTPStatus.NO_CONTENT
                     )
                 },
             ),

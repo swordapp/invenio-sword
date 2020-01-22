@@ -85,7 +85,7 @@ def test_post_service_document_with_bagit_bag(api, users, location, fixtures_pat
                 "dc:title": "The title",
                 "dcterms:abstract": "This is my abstract",
             },
-            "swordMetadataFormat": "http://purl.org/net/sword/3.0/types/Metadata",
+            "swordMetadataSourceFormat": "http://purl.org/net/sword/3.0/types/Metadata",
         }
 
 

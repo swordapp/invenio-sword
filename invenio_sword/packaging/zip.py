@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import mimetypes
 import shutil
 import tempfile
+import typing
 import uuid
 import zipfile
 
@@ -8,11 +11,13 @@ from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
 from werkzeug.exceptions import UnsupportedMediaType
 
-from ..api import SWORDDeposit
+from ..enum import ObjectTagKey
+from ..typing import BytesReader
 from .base import IngestResult
 from .base import Packaging
-from invenio_sword.enum import ObjectTagKey
-from invenio_sword.typing import BytesReader
+
+if typing.TYPE_CHECKING:
+    from ..api import SWORDDeposit
 
 __all__ = ["SimpleZipPackaging"]
 

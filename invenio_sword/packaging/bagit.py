@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import mimetypes
 import os
 import shutil
 import tempfile
+import typing
 import uuid
 import zipfile
 
@@ -12,12 +15,14 @@ from werkzeug.exceptions import BadRequest
 from werkzeug.exceptions import NotImplemented
 from werkzeug.exceptions import UnsupportedMediaType
 
+from ..enum import ObjectTagKey
+from ..metadata import SWORDMetadata
+from ..typing import BytesReader
 from .base import IngestResult
 from .base import Packaging
-from invenio_sword.api import SWORDDeposit
-from invenio_sword.enum import ObjectTagKey
-from invenio_sword.metadata import SWORDMetadata
-from invenio_sword.typing import BytesReader
+
+if typing.TYPE_CHECKING:  # pragma: nocover
+    from invenio_sword.api import SWORDDeposit
 
 __all__ = ["SWORDBagItPackaging"]
 
@@ -84,8 +89,11 @@ class SWORDBagItPackaging(Packaging):
                     and "metadata/sword.json" in bag.entries
                 ):
                     with open(metadata_path, "rb") as metadata_f:
-                        record.sword_metadata = SWORDMetadata.from_document(
-                            metadata_f, content_type=SWORDMetadata.content_type,
+                        record.set_metadata(
+                            metadata_f,
+                            metadata_class=SWORDMetadata,
+                            content_type="application/ld+json",
+                            replace=True,
                         )
 
                 # Ingest payload files

@@ -1,20 +1,26 @@
 from __future__ import annotations
 
 import functools
+import io
 import logging
-from typing import Optional
-from typing import TYPE_CHECKING
+import typing
 
-from flask import current_app
 from flask import url_for
 from invenio_deposit.api import Deposit
+from invenio_files_rest.models import ObjectVersion
+from invenio_files_rest.models import ObjectVersionTag
 from invenio_pidstore.resolver import Resolver
 from invenio_records_files.api import FileObject
+from sqlalchemy import true
+from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import Conflict
+from werkzeug.http import parse_options_header
 
+from .metadata import JSONMetadata
+from .metadata import Metadata
 from invenio_sword.enum import ObjectTagKey
-
-if TYPE_CHECKING:
-    from .metadata import Metadata  # pragma: nocover
+from invenio_sword.metadata import SWORDMetadata
+from invenio_sword.typing import BytesReader
 
 
 logger = logging.getLogger(__name__)
@@ -92,6 +98,9 @@ class SWORDDeposit(Deposit):
                 )
             if ObjectTagKey.Packaging.value in tags:
                 link["packaging"] = tags[ObjectTagKey.Packaging.value]
+            if ObjectTagKey.MetadataFormat.value in tags:
+                rel.add("http://purl.org/net/sword/3.0/terms/formattedMetadata")
+                link["metadataFormat"] = tags[ObjectTagKey.MetadataFormat.value]
 
             link["rel"] = sorted(rel)
 
@@ -143,45 +152,114 @@ class SWORDDeposit(Deposit):
         )
 
     @property
-    def sword_metadata_format(self):
-        return self.get("swordMetadataFormat")
+    def metadata_key_prefix(self):
+        return ".metadata-{}/".format(self.pid.pid_value)
 
     @property
-    def sword_metadata(self) -> Optional[Metadata]:
-        if self.sword_metadata_format:
-            try:
-                metadata_cls = current_app.config["SWORD_ENDPOINTS"][self.pid.pid_type][
-                    "metadata_formats"
-                ][self.sword_metadata_format]
-            except KeyError:
-                logger.warning(
-                    "Metadata format for record %s (%s) not supported",
-                    self.pid.pid_value,
-                    self.sword_metadata_format,
-                )
-                return None
-            return metadata_cls(self["swordMetadata"])
-        else:
-            return None
+    def original_deposit_key_prefix(self):
+        return ".original-deposit-{}/".format(self.pid.pid_value)
 
-    @sword_metadata.setter
-    def sword_metadata(self, metadata: Optional[Metadata]):
-        if metadata is None:
-            self.pop("swordMetadataFormat", None)
-            self.pop("swordMetadata", None)
-        else:
-            for metadata_format, metadata_cls in current_app.config["SWORD_ENDPOINTS"][
-                self.pid.pid_type
-            ]["metadata_formats"].items():
-                if isinstance(metadata, metadata_cls):
-                    break
-            else:
-                raise ValueError(
-                    "Metadata format %s is not configured", type(metadata).__qualname__
+    @property
+    def sword_metadata(self):
+        raise NotImplementedError
+
+    def set_metadata(
+        self,
+        source: typing.Optional[typing.Union[BytesReader, dict]],
+        metadata_class: typing.Type[Metadata],
+        content_type: str = None,
+        replace: bool = True,
+    ) -> typing.Optional[Metadata]:
+        if isinstance(source, dict) and not issubclass(metadata_class, JSONMetadata):
+            raise BadRequest(
+                "Metadata-Format must be JSON-based to use Metadata+By-Reference deposit"
+            )
+
+        if not content_type:
+            content_type = metadata_class.content_type
+
+        existing_metadata_object = (
+            ObjectVersion.query.join(ObjectVersion.tags)
+            .filter(
+                ObjectVersion.is_head == true(),
+                ObjectVersion.file_id.isnot(None),
+                ObjectVersion.bucket == self.bucket,
+                ObjectVersionTag.key == ObjectTagKey.MetadataFormat.value,
+                ObjectVersionTag.value == metadata_class.metadata_format,
+            )
+            .first()
+        )
+
+        if source is None:
+
+            if replace and existing_metadata_object:
+                ObjectVersion.delete(
+                    bucket=existing_metadata_object.bucket,
+                    key=existing_metadata_object.key,
                 )
-            self["swordMetadataFormat"] = metadata_format
-            self["swordMetadata"] = metadata.to_json()
-            metadata.update_record_metadata(self)
+
+            if replace and (
+                self.get("swordMetadataSourceFormat") == metadata_class.metadata_format
+            ):
+                self.pop("swordMetadata", None)
+                self.pop("swordMetadataSourceFormat", None)
+
+            return None
+        else:
+            content_type, content_type_options = parse_options_header(content_type)
+
+            # if isinstance(source, dict):
+            assert issubclass(metadata_class, JSONMetadata)
+
+            encoding = content_type_options.get("charset")
+            if isinstance(encoding, str):
+                metadata = metadata_class.from_document(
+                    source, content_type=content_type, encoding=encoding,
+                )
+            else:
+                metadata = metadata_class.from_document(
+                    source, content_type=content_type,
+                )
+
+            if existing_metadata_object and not replace:
+                with existing_metadata_object.file.storage().open() as existing_metadata_f:
+                    existing_metadata = metadata_class.from_document(
+                        existing_metadata_f, content_type=metadata_class.content_type,
+                    )
+                try:
+                    metadata = existing_metadata + metadata
+                except TypeError:
+                    raise Conflict(
+                        "Existing or new metadata is of wrong type for appending. Reconcile client-side and PUT instead"
+                    )
+
+            metadata_filename = self.metadata_key_prefix + metadata_class.filename
+
+            if (
+                isinstance(metadata, SWORDMetadata)
+                or "swordMetadata" not in self
+                or (
+                    not isinstance(metadata, SWORDMetadata)
+                    and self["swordMetadataSourceFormat"]
+                    == metadata_class.metadata_format
+                )
+            ):
+                metadata.update_record_metadata(self)
+                self["swordMetadata"] = metadata.to_sword_metadata()
+                self["swordMetadataSourceFormat"] = metadata_class.metadata_format
+
+            object_version = ObjectVersion.create(
+                bucket=self.bucket,
+                key=metadata_filename,
+                stream=io.BytesIO(bytes(metadata)),
+            )
+            ObjectVersionTag.create(
+                object_version=object_version,
+                key=ObjectTagKey.MetadataFormat.value,
+                value=metadata_class.metadata_format,
+            )
+
+            return metadata
 
 
 pid_resolver = Resolver(
