@@ -42,7 +42,11 @@ class SWORDBagItPackaging(Packaging):
         if content_type != self.content_type:
             raise UnsupportedMediaType
 
-        original_deposit_filename = "original-deposit-{}.zip".format(uuid.uuid4())
+        original_deposit_filename = (
+            record.original_deposit_key_prefix
+            + "sword-bagit-{}.zip".format(uuid.uuid4())
+        )
+
         unpackaged_objects = []
 
         with tempfile.TemporaryDirectory() as path:
