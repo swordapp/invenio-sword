@@ -19,7 +19,7 @@ def test_get_metadata_document(api, users, location, es):
         )
 
         record = SWORDDeposit.create({})
-        record.sword_metadata = SWORDMetadata({"dc:title": "Deposit title"})
+        record.set_metadata({"dc:title": "Deposit title"}, SWORDMetadata)
         record.commit()
         db.session.commit()
 
@@ -29,14 +29,9 @@ def test_get_metadata_document(api, users, location, es):
         response = client.get("/sword/deposit/{}/metadata".format(record.pid.pid_value))
         assert response.status_code == HTTPStatus.OK
         assert response.is_json
-        assert (
-            response.headers["Metadata-Format"]
-            == "http://purl.org/net/sword/3.0/types/Metadata"
-        )
         assert response.json == {
-            "@id": "http://localhost/sword/deposit/{}/metadata".format(
-                record.pid.pid_value
-            ),
+            "@id": "http://localhost/sword/deposit/{}".format(record.pid.pid_value),
+            "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
             "dc:title": "Deposit title",
         }
 
@@ -56,7 +51,7 @@ def test_get_metadata_document_when_not_available(api, users, location, es):
         status_response = client.get(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value)
         )
-        assert status_response.status_code == HTTPStatus.NOT_FOUND
+        assert status_response.status_code == HTTPStatus.OK
 
 
 def test_put_metadata_document_without_body(api, users, location, es):
@@ -70,7 +65,7 @@ def test_put_metadata_document_without_body(api, users, location, es):
         db.session.commit()
 
         response = client.put("/sword/deposit/{}/metadata".format(record.pid.pid_value))
-        assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+        assert response.status_code == HTTPStatus.BAD_REQUEST
 
 
 def test_put_metadata_document_invalid_json(api, users, location, es):
@@ -115,11 +110,14 @@ def test_put_metadata_document(api, users, location, es):
 
         record = SWORDDeposit.get_record(record.id)
         assert (
-            record.sword_metadata_format
+            record["swordMetadataSourceFormat"]
             == "http://purl.org/net/sword/3.0/types/Metadata"
         )
-        assert isinstance(record.sword_metadata, SWORDMetadata)
-        assert record.sword_metadata.data == {}
+        assert any(
+            "http://purl.org/net/sword/3.0/terms/formattedMetadata" in link["rel"]
+            and link["metadataFormat"] == "http://purl.org/net/sword/3.0/types/Metadata"
+            for link in record.get_status_as_jsonld()["links"]
+        )
 
 
 @pytest.mark.parametrize(
@@ -142,12 +140,13 @@ def test_post_metadata_document_to_append(
             data={"email": users[0]["email"], "password": "tester"},
         )
         record = SWORDDeposit.create({})
-        record.sword_metadata = SWORDMetadata(
+        record.set_metadata(
             {
                 "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
                 "dc:title": "Some title",
                 "dc:subject": "Some subject",
-            }
+            },
+            SWORDMetadata,
         )
         record.commit()
         db.session.commit()
@@ -171,11 +170,10 @@ def test_post_metadata_document_to_append(
 
         record = SWORDDeposit.get_record(record.id)
         assert (
-            record.sword_metadata_format
+            record["swordMetadataSourceFormat"]
             == "http://purl.org/net/sword/3.0/types/Metadata"
         )
-        assert isinstance(record.sword_metadata, SWORDMetadata)
-        assert record.sword_metadata.data == {
+        assert record["swordMetadata"] == {
             "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
             "dc:title": "Some title",
             "dc:subject": "Another subject",
@@ -183,7 +181,7 @@ def test_post_metadata_document_to_append(
         }
 
 
-def test_post_metadata_document_with_inconsistent_metadata_format(
+def test_post_metadata_document_with_additional_metadata_format(
     api, users, location, es, test_metadata_format
 ):
     with api.test_request_context(), api.test_client() as client:
@@ -192,12 +190,13 @@ def test_post_metadata_document_with_inconsistent_metadata_format(
             data={"email": users[0]["email"], "password": "tester"},
         )
         record = SWORDDeposit.create({})
-        record.sword_metadata = SWORDMetadata(
+        record.set_metadata(
             {
                 "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
                 "dc:title": "Some title",
                 "dc:subject": "Some subject",
-            }
+            },
+            SWORDMetadata,
         )
         record.commit()
         db.session.commit()
@@ -210,20 +209,27 @@ def test_post_metadata_document_with_inconsistent_metadata_format(
             },
             data=io.BytesIO(b"some metadata"),
         )
-        assert response.status_code == HTTPStatus.CONFLICT
+        assert response.status_code == HTTPStatus.NO_CONTENT
 
         record = SWORDDeposit.get_record(record.id)
+        # Check nothing changed
         assert (
-            record.sword_metadata_format
+            record["swordMetadataSourceFormat"]
             == "http://purl.org/net/sword/3.0/types/Metadata"
         )
-        # Check nothing changed
-        assert isinstance(record.sword_metadata, SWORDMetadata)
-        assert record.sword_metadata.data == {
+        assert record["swordMetadata"] == {
             "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
             "dc:title": "Some title",
             "dc:subject": "Some subject",
         }
+        assert len(
+            [
+                link
+                for link in record.get_status_as_jsonld()["links"]
+                if "http://purl.org/net/sword/3.0/terms/formattedMetadata"
+                in link["rel"]
+            ]
+        )
 
 
 def test_put_metadata_document_with_unsupported_format(api, users, location, es):
@@ -254,12 +260,12 @@ def test_delete_metadata_document(api, users, location, es):
             data={"email": users[0]["email"], "password": "tester"},
         )
         record = SWORDDeposit.create({})
-        record.sword_metadata = SWORDMetadata({"dc:title": "Deposit title"})
+        record.set_metadata({"dc:title": "Deposit title"}, SWORDMetadata)
         record.commit()
         db.session.commit()
 
-        assert record.sword_metadata_format is not None
-        assert record.sword_metadata is not None
+        assert record.get("swordMetadataSourceFormat") is not None
+        assert record.get("swordMetadata") is not None
 
         response = client.delete(
             "/sword/deposit/{}/metadata".format(record.pid.pid_value)
@@ -267,5 +273,5 @@ def test_delete_metadata_document(api, users, location, es):
         assert response.status_code == HTTPStatus.NO_CONTENT
 
         record = SWORDDeposit.get_record(record.id)
-        assert record.sword_metadata_format is None
-        assert record.sword_metadata is None
+        assert record.get("swordMetadataSourceFormat") is None
+        assert record.get("swordMetadata") is None

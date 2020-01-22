@@ -1,12 +1,19 @@
 import io
+import json
+import os
 from http import HTTPStatus
 
 from flask import url_for
 from flask_security import url_for_security
 from invenio_db import db
 from invenio_files_rest.models import ObjectVersion
+from invenio_files_rest.models import ObjectVersionTag
+from sqlalchemy import null
+from sqlalchemy import true
 
 from invenio_sword.api import SWORDDeposit
+from invenio_sword.enum import ObjectTagKey
+from invenio_sword.packaging import SWORDBagItPackaging
 
 
 def test_get_fileset_url(api, users, location, es):
@@ -33,11 +40,16 @@ def test_put_fileset_url(api, users, location, es):
         )
         record = SWORDDeposit.create({})
         record.commit()
-        ObjectVersion.create(
+        object_version = ObjectVersion.create(
             record.bucket,
             key="old-file.txt",
             stream=io.BytesIO(b"hello"),
             mimetype="text/plain",
+        )
+        ObjectVersionTag.create(
+            object_version=object_version,
+            key=ObjectTagKey.FileSetFile.value,
+            value="true",
         )
         db.session.commit()
 
@@ -109,3 +121,65 @@ def test_post_fileset_url(api, users, location, es):
             bucket=record.bucket, key="new-file.txt"
         ).one()
         assert new_object_version.is_head
+
+
+def test_delete_fileset(api, users, location, es, fixtures_path, test_metadata_format):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
+
+        # Create a deposit, initially with a metadata deposit
+        original_response = client.post(
+            url_for("invenio_sword.depid_service_document"),
+            data=json.dumps(
+                {
+                    "@context": "https://swordapp.github.io/swordv3/swordv3.jsonld",
+                    "title": "A title",
+                }
+            ),
+            headers={"Content-Disposition": "attachment; metadata=true",},
+        )
+
+        assert ObjectVersion.query.count() == 1
+
+        # Add some extra metadata
+        response = client.post(
+            original_response.json["metadata"]["@id"],
+            data=b"some metadata",
+            headers={"Metadata-Format": test_metadata_format},
+        )
+        assert response.status_code == HTTPStatus.NO_CONTENT
+
+        assert ObjectVersion.query.count() == 2
+
+        with open(os.path.join(fixtures_path, "bagit.zip"), "rb") as f:
+            response = client.post(
+                original_response.headers["Location"],
+                data=f,
+                headers={
+                    "Packaging": SWORDBagItPackaging.packaging_name,
+                    "Content-Type": "application/zip",
+                },
+            )
+            assert response.status_code == HTTPStatus.CREATED
+
+        # One test metadata, one old SWORD metadata, one new SWORD metadata, one original deposit, and two files
+        assert ObjectVersion.query.count() == 6
+        # One test metadata, one new SWORD metadata, one original deposit, and two files
+        assert ObjectVersion.query.filter(ObjectVersion.is_head == true()).count() == 5
+
+        # Now let's delete the fileset. This should ensure that there is only one extant file, as the SWORD metadata and
+        # original deposit were deposited as part of a fileset, leaving only the test dataset
+        response = client.delete(original_response.json["fileSet"]["@id"])
+        assert response.status_code == HTTPStatus.NO_CONTENT
+
+        # All four previously extent files now have file_id=NULL versions
+        assert ObjectVersion.query.count() == 10
+        assert (
+            ObjectVersion.query.filter(
+                ObjectVersion.is_head == true(), ObjectVersion.file_id != null()
+            ).count()
+            == 1
+        )

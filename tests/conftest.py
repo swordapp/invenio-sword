@@ -104,6 +104,11 @@ def test_metadata_format():
 
 
 class TestMetadata(Metadata):
+    name = "test"
+    content_type = "application/binary"
+    metadata_format = "http://example.org/TestMetadataFormat"
+    filename = "test.bin"
+
     def __init__(self, data):
         self.data = data
 
@@ -111,7 +116,10 @@ class TestMetadata(Metadata):
     def from_document(
         cls, document: BytesReader, content_type: str, encoding: str = "utf_8"
     ) -> Metadata:
-        return cls({"data": document.read().decode()})
+        return cls(document.read())
+
+    def __bytes__(self):
+        return self.data
 
 
 @pytest.yield_fixture()

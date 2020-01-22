@@ -100,7 +100,7 @@ def test_metadata_deposit(api, users, location, metadata_document):
                 "dc:title": "The title",
                 "dcterms:abstract": "This is my abstract",
             },
-            "swordMetadataFormat": "http://purl.org/net/sword/3.0/types/Metadata",
+            "swordMetadataSourceFormat": "http://purl.org/net/sword/3.0/types/Metadata",
             "$schema": "http://localhost/schemas/deposits/deposit-v1.0.0.json",
             "_deposit": {
                 "id": pid_value,

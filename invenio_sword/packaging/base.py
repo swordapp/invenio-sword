@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Iterable
-from typing import Optional
+import typing
 
 from invenio_files_rest.models import ObjectVersion
 
-from invenio_sword.api import SWORDDeposit
-from invenio_sword.typing import BytesReader
+from ..typing import BytesReader
+
+if typing.TYPE_CHECKING:  # pragma: nocover
+    from ..api import SWORDDeposit
 
 
 class Packaging:
@@ -26,8 +27,8 @@ class Packaging:
 class IngestResult:
     def __init__(
         self,
-        original_deposit: Optional[ObjectVersion],
-        unpackaged_objects: Iterable[ObjectVersion] = None,
+        original_deposit: typing.Optional[ObjectVersion],
+        unpackaged_objects: typing.Iterable[ObjectVersion] = None,
     ):
         self.original_deposit = original_deposit
         self.ingested_objects = list(unpackaged_objects or ())
