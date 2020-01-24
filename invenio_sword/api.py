@@ -8,6 +8,7 @@ import typing
 
 from flask import url_for
 from invenio_deposit.api import Deposit
+from invenio_deposit.api import has_status
 from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
 from invenio_pidstore.resolver import Resolver
@@ -210,6 +211,7 @@ class SWORDDeposit(Deposit):
 
         return ingest_result
 
+    @has_status(status="draft")
     def set_metadata(
         self,
         source: typing.Optional[typing.Union[BytesReader, dict]],
