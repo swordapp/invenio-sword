@@ -8,7 +8,6 @@ from flask import current_app
 from flask import redirect
 from flask import request
 from flask import Response
-from flask import url_for
 from invenio_db import db
 from invenio_deposit.search import DepositSearch
 from invenio_deposit.views.rest import create_error_handlers
@@ -199,23 +198,8 @@ class DepositStatusView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def post(self, pid, record: SWORDDeposit):
-        result = self.update_deposit(record, replace=False)
-
-        if isinstance(result, IngestResult) and result.original_deposit:
-            response = Response(status=HTTPStatus.CREATED)
-            response.headers["Location"] = url_for(
-                "invenio_sword.{}_file".format(pid.pid_type),
-                pid_value=pid.pid_value,
-                key=result.original_deposit.key,
-                _external=True,
-            )
-        elif isinstance(result, Metadata):
-            response = Response(status=HTTPStatus.CREATED)
-            response.headers["Location"] = record.sword_metadata_url
-        else:
-            response = Response(status=HTTPStatus.NO_CONTENT)
-
-        return response
+        self.update_deposit(record, replace=False)
+        return record.get_status_as_jsonld()
 
     @pass_record
     @need_record_permission("update_permission_factory")

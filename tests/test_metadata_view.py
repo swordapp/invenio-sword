@@ -126,7 +126,7 @@ def test_put_metadata_document(api, users, location, es):
         ("invenio_sword.depid_metadata", HTTPStatus.NO_CONTENT, {}),
         (
             "invenio_sword.depid_item",
-            HTTPStatus.CREATED,
+            HTTPStatus.OK,
             {"Content-Disposition": "attachment; metadata=true"},
         ),
     ],

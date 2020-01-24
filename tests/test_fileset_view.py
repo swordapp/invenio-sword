@@ -167,7 +167,7 @@ def test_delete_fileset(api, users, location, es, fixtures_path, test_metadata_f
                     "In-Progress": "true",
                 },
             )
-            assert response.status_code == HTTPStatus.CREATED
+            assert response.status_code == HTTPStatus.OK
 
         # One test metadata, one old SWORD metadata, one new SWORD metadata, one original deposit, and two files
         assert ObjectVersion.query.count() == 6
