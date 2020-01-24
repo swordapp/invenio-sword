@@ -164,6 +164,7 @@ def test_delete_fileset(api, users, location, es, fixtures_path, test_metadata_f
                 headers={
                     "Packaging": SWORDBagItPackaging.packaging_name,
                     "Content-Type": "application/zip",
+                    "In-Progress": "true",
                 },
             )
             assert response.status_code == HTTPStatus.CREATED

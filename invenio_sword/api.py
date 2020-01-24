@@ -161,6 +161,7 @@ class SWORDDeposit(Deposit):
     def original_deposit_key_prefix(self):
         return ".original-deposit-{}/".format(self.pid.pid_value)
 
+    @has_status(status="draft")
     def set_fileset_from_stream(
         self,
         stream: typing.Optional[BytesReader],
