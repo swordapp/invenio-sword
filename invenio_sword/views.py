@@ -45,6 +45,10 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             setattr(self, key, value)
 
     @cached_property
+    def endpoint_options(self) -> typing.Dict[str, typing.Any]:
+        return current_app.config["SWORD_ENDPOINTS"][self.pid_type]
+
+    @cached_property
     def metadata_format(self):
         return request.headers.get(
             "Metadata-Format", self.endpoint_options["default_metadata_format"]
@@ -342,7 +346,7 @@ def create_blueprint(endpoints):
             record_class=record_class,
             search_class=partial(search_class, **search_class_kwargs),
             default_media_type=options.get("default_media_type"),
-            endpoint_options=options,
+            pid_type=endpoint,
         )
 
         blueprint.add_url_rule(
