@@ -31,7 +31,8 @@ from .typing import BytesReader
 
 class SWORDDepositView(ContentNegotiatedMethodView):
     view_name: str
-    record_class: type
+    record_class: typing.Type[SWORDDeposit]
+    pid_type: str
 
     def __init__(self, serializers, ctx, *args, **kwargs):
         """Constructor."""
