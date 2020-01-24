@@ -18,6 +18,7 @@ from invenio_records_rest.views import need_record_permission
 from invenio_records_rest.views import pass_record
 from invenio_records_rest.views import verify_record_permission
 from invenio_rest import ContentNegotiatedMethodView
+from werkzeug.exceptions import Conflict
 from werkzeug.exceptions import NotImplemented
 from werkzeug.http import parse_options_header
 from werkzeug.utils import cached_property
@@ -76,11 +77,23 @@ class SWORDDepositView(ContentNegotiatedMethodView):
                 "Unsupported Packaging header value"
             ) from e
 
+    @cached_property
+    def in_progress(self) -> typing.Optional[bool]:
+        return request.headers.get("In-Progress") == "true"
+
+    def update_deposit_status(self, record: SWORDDeposit):
+        if self.in_progress:
+            if record["_deposit"]["status"] == "published":
+                raise Conflict(
+                    "Deposit has status {}; cannot subsequently be made In-Progress".format(
+                        record["_deposit"]["status"]
+                    )
+                )
+        elif record["_deposit"]["status"] == "draft":
+            record["_deposit"]["status"] = "published"
+
     def create_deposit(self) -> SWORDDeposit:
-        in_progress = request.headers.get("In-Progress") == "true"
-        record = SWORDDeposit.create({"metadata": {}})
-        record["_deposit"]["status"] = "draft" if in_progress else "published"
-        return record
+        return SWORDDeposit.create({"metadata": {}})
 
     def update_deposit(
         self, record: SWORDDeposit, replace: bool = True
@@ -119,8 +132,10 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             result = self.set_fileset_from_stream(
                 record, request.stream, replace=replace
             )
-        else:
+        elif replace:
             self.set_fileset_from_stream(record, None, replace=replace)
+
+        self.update_deposit_status(record)
 
         record.commit()
         db.session.commit()
