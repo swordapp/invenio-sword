@@ -12,22 +12,18 @@ from flask import url_for
 from invenio_db import db
 from invenio_deposit.search import DepositSearch
 from invenio_deposit.views.rest import create_error_handlers
-from invenio_files_rest.models import ObjectVersion
-from invenio_files_rest.models import ObjectVersionTag
 from invenio_records_files.views import RecordObjectResource
 from invenio_records_rest.utils import obj_or_import_string
 from invenio_records_rest.views import need_record_permission
 from invenio_records_rest.views import pass_record
 from invenio_records_rest.views import verify_record_permission
 from invenio_rest import ContentNegotiatedMethodView
-from sqlalchemy import true
 from werkzeug.exceptions import NotImplemented
 from werkzeug.http import parse_options_header
 from werkzeug.utils import cached_property
 
 from . import serializers
 from .api import SWORDDeposit
-from .enum import ObjectTagKey
 from .metadata import Metadata
 from .packaging import IngestResult
 from .typing import BytesReader
@@ -129,47 +125,13 @@ class SWORDDepositView(ContentNegotiatedMethodView):
     def set_fileset_from_stream(
         self, record: SWORDDeposit, stream: typing.Optional[BytesReader], replace=True
     ) -> IngestResult:
-        if stream:
-            content_disposition, content_disposition_options = parse_options_header(
-                request.headers.get("Content-Disposition", "")
-            )
-            content_type, _ = parse_options_header(request.content_type)
-            filename = content_disposition_options.get("filename")
-            ingest_result: IngestResult = self.packaging_class().ingest(
-                record=record,
-                stream=stream,
-                filename=filename,
-                content_type=content_type,
-            )
-        else:
-            ingest_result = IngestResult(None)
-
-        if replace:
-            ingested_keys = [
-                object_version.key for object_version in ingest_result.ingested_objects
-            ]
-            # Remove previous objects associated with filesets, including original deposits, and anything that was
-            # derived from them
-            for object_version in (
-                ObjectVersion.query.join(ObjectVersionTag)
-                .filter(
-                    ObjectVersion.bucket == record.bucket,
-                    ObjectVersion.is_head == true(),
-                    ObjectVersion.file_id.isnot(None),
-                    ObjectVersion.key.notin_(ingested_keys),
-                    ObjectVersionTag.key.in_(
-                        [
-                            ObjectTagKey.FileSetFile.value,
-                            ObjectTagKey.DerivedFrom.value,
-                            ObjectTagKey.OriginalDeposit.value,
-                        ]
-                    ),
-                )
-                .distinct(ObjectVersion.key)
-            ):
-                ObjectVersion.delete(record.bucket, object_version.key)
-
-        return ingest_result
+        return record.set_fileset_from_stream(
+            stream if (request.content_type or request.content_length) else None,
+            packaging_class=self.packaging_class,
+            content_disposition=request.headers.get("Content-Disposition"),
+            content_type=request.content_type,
+            replace=replace,
+        )
 
 
 class ServiceDocumentView(SWORDDepositView):
