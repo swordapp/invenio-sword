@@ -76,7 +76,7 @@ class SWORDDeposit(Deposit):
     def links(self):
 
         links = []
-        for file in self.files:
+        for file in self.files or ():
             link = {
                 "@id": file.rest_file_url,
                 "contentType": file.obj.mimetype,

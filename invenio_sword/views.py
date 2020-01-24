@@ -211,7 +211,6 @@ class DepositStatusView(SWORDDepositView):
     @need_record_permission("update_permission_factory")
     def delete(self, pid, record: SWORDDeposit):
         record.delete()
-        record.commit()
         db.session.commit()
         return record.get_status_as_jsonld()
 
