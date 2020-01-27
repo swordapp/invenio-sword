@@ -168,6 +168,7 @@ def test_create_with_metadata_and_then_ingest(
                 "Metadata-Format": "http://purl.org/net/sword/3.0/types/Metadata",
                 "Content-Type": "application/ld+json",
                 "Content-Disposition": "attachment; metadata=true",
+                "In-Progress": "true",
             },
         )
         assert response.status_code == HTTPStatus.CREATED

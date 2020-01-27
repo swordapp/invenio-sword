@@ -139,7 +139,10 @@ def test_delete_fileset(api, users, location, es, fixtures_path, test_metadata_f
                     "title": "A title",
                 }
             ),
-            headers={"Content-Disposition": "attachment; metadata=true",},
+            headers={
+                "Content-Disposition": "attachment; metadata=true",
+                "In-Progress": "true",
+            },
         )
 
         assert ObjectVersion.query.count() == 1
@@ -161,9 +164,10 @@ def test_delete_fileset(api, users, location, es, fixtures_path, test_metadata_f
                 headers={
                     "Packaging": SWORDBagItPackaging.packaging_name,
                     "Content-Type": "application/zip",
+                    "In-Progress": "true",
                 },
             )
-            assert response.status_code == HTTPStatus.CREATED
+            assert response.status_code == HTTPStatus.OK
 
         # One test metadata, one old SWORD metadata, one new SWORD metadata, one original deposit, and two files
         assert ObjectVersion.query.count() == 6

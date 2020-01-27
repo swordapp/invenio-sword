@@ -8,26 +8,22 @@ from flask import current_app
 from flask import redirect
 from flask import request
 from flask import Response
-from flask import url_for
 from invenio_db import db
 from invenio_deposit.search import DepositSearch
 from invenio_deposit.views.rest import create_error_handlers
-from invenio_files_rest.models import ObjectVersion
-from invenio_files_rest.models import ObjectVersionTag
 from invenio_records_files.views import RecordObjectResource
 from invenio_records_rest.utils import obj_or_import_string
 from invenio_records_rest.views import need_record_permission
 from invenio_records_rest.views import pass_record
 from invenio_records_rest.views import verify_record_permission
 from invenio_rest import ContentNegotiatedMethodView
-from sqlalchemy import true
+from werkzeug.exceptions import Conflict
 from werkzeug.exceptions import NotImplemented
 from werkzeug.http import parse_options_header
 from werkzeug.utils import cached_property
 
 from . import serializers
 from .api import SWORDDeposit
-from .enum import ObjectTagKey
 from .metadata import Metadata
 from .packaging import IngestResult
 from .typing import BytesReader
@@ -35,7 +31,8 @@ from .typing import BytesReader
 
 class SWORDDepositView(ContentNegotiatedMethodView):
     view_name: str
-    record_class: type
+    record_class: typing.Type[SWORDDeposit]
+    pid_type: str
 
     def __init__(self, serializers, ctx, *args, **kwargs):
         """Constructor."""
@@ -47,6 +44,10 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         )
         for key, value in ctx.items():
             setattr(self, key, value)
+
+    @cached_property
+    def endpoint_options(self) -> typing.Dict[str, typing.Any]:
+        return current_app.config["SWORD_ENDPOINTS"][self.pid_type]
 
     @cached_property
     def metadata_format(self):
@@ -75,11 +76,23 @@ class SWORDDepositView(ContentNegotiatedMethodView):
                 "Unsupported Packaging header value"
             ) from e
 
+    @cached_property
+    def in_progress(self) -> typing.Optional[bool]:
+        return request.headers.get("In-Progress") == "true"
+
+    def update_deposit_status(self, record: SWORDDeposit):
+        if self.in_progress:
+            if record["_deposit"]["status"] == "published":
+                raise Conflict(
+                    "Deposit has status {}; cannot subsequently be made In-Progress".format(
+                        record["_deposit"]["status"]
+                    )
+                )
+        elif record["_deposit"]["status"] == "draft":
+            record["_deposit"]["status"] = "published"
+
     def create_deposit(self) -> SWORDDeposit:
-        in_progress = request.headers.get("In-Progress") == "true"
-        record = SWORDDeposit.create({"metadata": {}})
-        record["_deposit"]["status"] = "draft" if in_progress else "published"
-        return record
+        return SWORDDeposit.create({"metadata": {}})
 
     def update_deposit(
         self, record: SWORDDeposit, replace: bool = True
@@ -118,8 +131,10 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             result = self.set_fileset_from_stream(
                 record, request.stream, replace=replace
             )
-        else:
+        elif replace:
             self.set_fileset_from_stream(record, None, replace=replace)
+
+        self.update_deposit_status(record)
 
         record.commit()
         db.session.commit()
@@ -129,47 +144,13 @@ class SWORDDepositView(ContentNegotiatedMethodView):
     def set_fileset_from_stream(
         self, record: SWORDDeposit, stream: typing.Optional[BytesReader], replace=True
     ) -> IngestResult:
-        if stream:
-            content_disposition, content_disposition_options = parse_options_header(
-                request.headers.get("Content-Disposition", "")
-            )
-            content_type, _ = parse_options_header(request.content_type)
-            filename = content_disposition_options.get("filename")
-            ingest_result: IngestResult = self.packaging_class().ingest(
-                record=record,
-                stream=stream,
-                filename=filename,
-                content_type=content_type,
-            )
-        else:
-            ingest_result = IngestResult(None)
-
-        if replace:
-            ingested_keys = [
-                object_version.key for object_version in ingest_result.ingested_objects
-            ]
-            # Remove previous objects associated with filesets, including original deposits, and anything that was
-            # derived from them
-            for object_version in (
-                ObjectVersion.query.join(ObjectVersionTag)
-                .filter(
-                    ObjectVersion.bucket == record.bucket,
-                    ObjectVersion.is_head == true(),
-                    ObjectVersion.file_id.isnot(None),
-                    ObjectVersion.key.notin_(ingested_keys),
-                    ObjectVersionTag.key.in_(
-                        [
-                            ObjectTagKey.FileSetFile.value,
-                            ObjectTagKey.DerivedFrom.value,
-                            ObjectTagKey.OriginalDeposit.value,
-                        ]
-                    ),
-                )
-                .distinct(ObjectVersion.key)
-            ):
-                ObjectVersion.delete(record.bucket, object_version.key)
-
-        return ingest_result
+        return record.set_fileset_from_stream(
+            stream if (request.content_type or request.content_length) else None,
+            packaging_class=self.packaging_class,
+            content_disposition=request.headers.get("Content-Disposition"),
+            content_type=request.content_type,
+            replace=replace,
+        )
 
 
 class ServiceDocumentView(SWORDDepositView):
@@ -217,23 +198,8 @@ class DepositStatusView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def post(self, pid, record: SWORDDeposit):
-        result = self.update_deposit(record, replace=False)
-
-        if isinstance(result, IngestResult) and result.original_deposit:
-            response = Response(status=HTTPStatus.CREATED)
-            response.headers["Location"] = url_for(
-                "invenio_sword.{}_file".format(pid.pid_type),
-                pid_value=pid.pid_value,
-                key=result.original_deposit.key,
-                _external=True,
-            )
-        elif isinstance(result, Metadata):
-            response = Response(status=HTTPStatus.CREATED)
-            response.headers["Location"] = record.sword_metadata_url
-        else:
-            response = Response(status=HTTPStatus.NO_CONTENT)
-
-        return response
+        self.update_deposit(record, replace=False)
+        return record.get_status_as_jsonld()
 
     @pass_record
     @need_record_permission("update_permission_factory")
@@ -245,7 +211,6 @@ class DepositStatusView(SWORDDepositView):
     @need_record_permission("update_permission_factory")
     def delete(self, pid, record: SWORDDeposit):
         record.delete()
-        record.commit()
         db.session.commit()
         return record.get_status_as_jsonld()
 
@@ -380,7 +345,7 @@ def create_blueprint(endpoints):
             record_class=record_class,
             search_class=partial(search_class, **search_class_kwargs),
             default_media_type=options.get("default_media_type"),
-            endpoint_options=options,
+            pid_type=endpoint,
         )
 
         blueprint.add_url_rule(

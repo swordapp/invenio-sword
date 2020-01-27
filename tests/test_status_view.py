@@ -1,6 +1,7 @@
 import io
 from http import HTTPStatus
 
+from flask import url_for
 from flask_security import url_for_security
 from invenio_db import db
 from invenio_files_rest.models import ObjectVersion
@@ -74,3 +75,22 @@ def test_put_status_document(api, users, location, es):
         assert not object_versions[0].is_head
         assert object_versions[1].is_head
         assert object_versions[1].file is None
+
+
+def test_cant_unpublish(api, users, location, es):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
+
+        response = client.post(url_for("invenio_sword.depid_service_document"))
+        assert response.status_code == HTTPStatus.CREATED
+        assert "http://purl.org/net/sword/3.0/state/accepted" in [
+            state["@id"] for state in response.json["state"]
+        ]
+
+        response = client.post(
+            response.headers["Location"], headers={"In-Progress": "true"}
+        )
+        assert response.status_code == HTTPStatus.CONFLICT

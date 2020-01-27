@@ -8,6 +8,7 @@ import typing
 
 from flask import url_for
 from invenio_deposit.api import Deposit
+from invenio_deposit.api import has_status
 from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
 from invenio_pidstore.resolver import Resolver
@@ -19,6 +20,8 @@ from werkzeug.http import parse_options_header
 from .metadata import Metadata
 from invenio_sword.enum import ObjectTagKey
 from invenio_sword.metadata import SWORDMetadata
+from invenio_sword.packaging import IngestResult
+from invenio_sword.packaging import Packaging
 from invenio_sword.typing import BytesReader
 
 
@@ -73,7 +76,7 @@ class SWORDDeposit(Deposit):
     def links(self):
 
         links = []
-        for file in self.files:
+        for file in self.files or ():
             link = {
                 "@id": file.rest_file_url,
                 "contentType": file.obj.mimetype,
@@ -158,6 +161,58 @@ class SWORDDeposit(Deposit):
     def original_deposit_key_prefix(self):
         return ".original-deposit-{}/".format(self.pid.pid_value)
 
+    @has_status(status="draft")
+    def set_fileset_from_stream(
+        self,
+        stream: typing.Optional[BytesReader],
+        packaging_class: typing.Type[Packaging],
+        content_disposition: str = None,
+        content_type: str = None,
+        replace=True,
+    ) -> IngestResult:
+        if stream:
+            content_disposition, content_disposition_options = parse_options_header(
+                content_disposition or ""
+            )
+            content_type, _ = parse_options_header(content_type or "")
+            filename = content_disposition_options.get("filename")
+            ingest_result: IngestResult = packaging_class().ingest(
+                record=self,
+                stream=stream,
+                filename=filename,
+                content_type=content_type,
+            )
+        else:
+            ingest_result = IngestResult(None)
+
+        if replace:
+            ingested_keys = [
+                object_version.key for object_version in ingest_result.ingested_objects
+            ]
+            # Remove previous objects associated with filesets, including original deposits, and anything that was
+            # derived from them
+            for object_version in (
+                ObjectVersion.query.join(ObjectVersionTag)
+                .filter(
+                    ObjectVersion.bucket == self.bucket,
+                    ObjectVersion.is_head == true(),
+                    ObjectVersion.file_id.isnot(None),
+                    ObjectVersion.key.notin_(ingested_keys),
+                    ObjectVersionTag.key.in_(
+                        [
+                            ObjectTagKey.FileSetFile.value,
+                            ObjectTagKey.DerivedFrom.value,
+                            ObjectTagKey.OriginalDeposit.value,
+                        ]
+                    ),
+                )
+                .distinct(ObjectVersion.key)
+            ):
+                ObjectVersion.delete(self.bucket, object_version.key)
+
+        return ingest_result
+
+    @has_status(status="draft")
     def set_metadata(
         self,
         source: typing.Optional[typing.Union[BytesReader, dict]],
