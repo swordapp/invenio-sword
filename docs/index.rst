@@ -12,6 +12,7 @@ Welcome to Invenio-SWORD's documentation!
 
    installation
    configuration
+   features
 
 
 invenio-sword is an implementation of the `SWORD deposit protocol <https://swordapp.github.io/swordv3/swordv3.html>`_
