@@ -28,6 +28,7 @@ from .metadata import Metadata
 from .packaging import IngestResult
 from .packaging import Packaging
 from .typing import BytesReader
+from .typing import SwordEndpointDefinition
 
 
 class SWORDDepositView(ContentNegotiatedMethodView):
@@ -375,7 +376,7 @@ class DepositFileView(RecordObjectResource):
     view_name = "{}_file"
 
 
-def create_blueprint(endpoints) -> Blueprint:
+def create_blueprint(endpoints: typing.Dict[str, SwordEndpointDefinition]) -> Blueprint:
     """
     Create an Invenio-SWORD blueprint
 
