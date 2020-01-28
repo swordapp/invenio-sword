@@ -26,10 +26,18 @@ from . import serializers
 from .api import SWORDDeposit
 from .metadata import Metadata
 from .packaging import IngestResult
+from .packaging import Packaging
 from .typing import BytesReader
 
 
 class SWORDDepositView(ContentNegotiatedMethodView):
+    """
+    Base class for all SWORD views
+
+    The properties and methods defined on this class are used by subclasses to SWORD operations with common
+    implementations across different SWORD views.
+    """
+
     view_name: str
     record_class: typing.Type[SWORDDeposit]
     pid_type: str
@@ -47,16 +55,22 @@ class SWORDDepositView(ContentNegotiatedMethodView):
 
     @cached_property
     def endpoint_options(self) -> typing.Dict[str, typing.Any]:
+        """Configuration endpoints for this view's SWORD endpoint"""
         return current_app.config["SWORD_ENDPOINTS"][self.pid_type]
 
     @cached_property
-    def metadata_format(self):
+    def metadata_format(self) -> str:
+        """The ``Metadata-Format`` header, or its default per config"""
         return request.headers.get(
             "Metadata-Format", self.endpoint_options["default_metadata_format"]
         )
 
     @cached_property
-    def metadata_class(self):
+    def metadata_class(self) -> typing.Type[Metadata]:
+        """The Metadata subclass associated with the request.
+
+        :raises NotImplemented: if the ``Metadata-Format`` is not supported
+        """
         try:
             return self.endpoint_options["metadata_formats"][self.metadata_format]
         except KeyError as e:
@@ -65,7 +79,11 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             ) from e
 
     @cached_property
-    def packaging_class(self):
+    def packaging_class(self) -> typing.Type[Packaging]:
+        """The Packaging subclass associated with the request.
+
+        :raises NotImplemented: if the ``Packaging`` is not supported
+        """
         packaging = request.headers.get(
             "Packaging", current_app.config["SWORD_DEFAULT_PACKAGING_FORMAT"]
         )
@@ -77,10 +95,14 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             ) from e
 
     @cached_property
-    def in_progress(self) -> typing.Optional[bool]:
+    def in_progress(self) -> bool:
+        """Whether the request declares that the deposit is still in progress, via the ``In-Progress`` header"""
         return request.headers.get("In-Progress") == "true"
 
-    def update_deposit_status(self, record: SWORDDeposit):
+    def update_deposit_status(self, record: SWORDDeposit) -> None:
+        """Updates a deposit status from the In-Progress header
+
+        """
         if self.in_progress:
             if record["_deposit"]["status"] == "published":
                 raise Conflict(
@@ -92,11 +114,17 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             record["_deposit"]["status"] = "published"
 
     def create_deposit(self) -> SWORDDeposit:
+        """Create an empty deposit record"""
         return SWORDDeposit.create({"metadata": {}})
 
     def update_deposit(
         self, record: SWORDDeposit, replace: bool = True
     ) -> typing.Optional[typing.Union[Metadata, IngestResult]]:
+        """Update a deposit according to the request data
+
+        :param replace: If ``True``, all previous data on the deposit is removed. If ``False``, the request augments
+            data already provided.
+        """
         result: typing.Optional[typing.Union[Metadata, IngestResult]] = None
 
         content_disposition, content_disposition_options = parse_options_header(
@@ -144,6 +172,16 @@ class SWORDDepositView(ContentNegotiatedMethodView):
     def set_fileset_from_stream(
         self, record: SWORDDeposit, stream: typing.Optional[BytesReader], replace=True
     ) -> IngestResult:
+        """
+        Sets or adds to a deposit fileset using a bytestream and request headers
+
+        This method wraps ``record.set_fileset_from_stream()`` with appropriate arguments.
+
+        :param record: The SWORDDeposit record to modify
+        :param stream: A bytestream of the file or package to be deposited
+        :param replace: Whether to replace or add to the deposit
+        :return: an IngestResult
+        """
         return record.set_fileset_from_stream(
             stream if (request.content_type or request.content_length) else None,
             packaging_class=self.packaging_class,
@@ -157,6 +195,10 @@ class ServiceDocumentView(SWORDDepositView):
     view_name = "{}_service_document"
 
     def get(self):
+        """Retrieve the service document
+
+        :see also: https://swordapp.github.io/swordv3/swordv3.html#9.2.
+        """
         return {
             "@type": "ServiceDocument",
             "dc:title": current_app.config["THEME_SITENAME"],
@@ -172,6 +214,7 @@ class ServiceDocumentView(SWORDDepositView):
 
     @need_record_permission("create_permission_factory")
     def post(self, **kwargs):
+        """Initiate a SWORD deposit"""
         record = self.create_deposit()
 
         # Check permissions
@@ -193,23 +236,30 @@ class DepositStatusView(SWORDDepositView):
     @pass_record
     @need_record_permission("read_permission_factory")
     def get(self, pid, record: SWORDDeposit):
+        """Retrieve a SWORD status document for a deposit record
+
+        :see also: https://swordapp.github.io/swordv3/swordv3.html#9.6.
+        """
         return record.get_status_as_jsonld()
 
     @pass_record
     @need_record_permission("update_permission_factory")
     def post(self, pid, record: SWORDDeposit):
+        """Augment a SWORD deposit with either metadata or files"""
         self.update_deposit(record, replace=False)
         return record.get_status_as_jsonld()
 
     @pass_record
     @need_record_permission("update_permission_factory")
     def put(self, pid, record: SWORDDeposit):
+        """Replace a SWORD deposit with either metadata or files"""
         self.update_deposit(record)
         return record.get_status_as_jsonld()
 
     @pass_record
     @need_record_permission("update_permission_factory")
     def delete(self, pid, record: SWORDDeposit):
+        """Delete a SWORD deposit"""
         record.delete()
         db.session.commit()
         return record.get_status_as_jsonld()
@@ -221,6 +271,11 @@ class DepositMetadataView(SWORDDepositView):
     @pass_record
     @need_record_permission("read_permission_factory")
     def get(self, pid, record: SWORDDeposit):
+        """
+        Retrieve the deposit's SWORD metadata as a JSON-LD document
+
+        This will return the empty document with a 200 status if no metadata is available
+        """
         return {
             "@id": record.sword_status_url,
             **record.get("swordMetadata", {}),
@@ -229,6 +284,14 @@ class DepositMetadataView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def post(self, pid, record: SWORDDeposit):
+        """
+        Extend the metadata with new metadata from the request body
+
+        :param pid: The persistent identifier for the deposit
+        :param record: The SWORDDeposit object
+        :raises Conflict: if there is existing metadata that doesn't support the ``+`` operation
+        :return: a 204 No Content response
+        """
         record.set_metadata(
             request.stream, self.metadata_class, request.content_type, replace=False
         )
@@ -239,6 +302,13 @@ class DepositMetadataView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def put(self, pid, record: SWORDDeposit):
+        """
+        Set the metadata with new metadata from the request body
+
+        :param pid: The persistent identifier for the deposit
+        :param record: The SWORDDeposit object
+        :return: a 204 No Content response
+        """
         record.set_metadata(request.stream, self.metadata_class, request.content_type)
         record.commit()
         db.session.commit()
@@ -247,6 +317,13 @@ class DepositMetadataView(SWORDDepositView):
     @pass_record
     @need_record_permission("delete_permission_factory")
     def delete(self, pid, record: SWORDDeposit):
+        """
+        Delete ny existing metadata of the format given by the Metadata-Format header
+
+        :param pid: The persistent identifier for the deposit
+        :param record: The SWORDDeposit object
+        :return: a 204 No Content response
+        """
         record.set_metadata(None, self.metadata_class)
         record.commit()
         db.session.commit()
@@ -298,8 +375,12 @@ class DepositFileView(RecordObjectResource):
     view_name = "{}_file"
 
 
-def create_blueprint(endpoints):
-    """Create Invenio-SWORD blueprint.
+def create_blueprint(endpoints) -> Blueprint:
+    """
+    Create an Invenio-SWORD blueprint
+
+    This takes a list of endpoint definitions and returns a SWORD blueprint for use in Invenio. You shouldn't need to
+    use this directly, as it's called by :class:`invenio_sword.ext.InvenioSword`.
 
     See: :data:`invenio_sword.config.SWORD_ENDPOINTS`.
 
