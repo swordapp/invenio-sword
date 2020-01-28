@@ -13,6 +13,7 @@ Welcome to Invenio-SWORD's documentation!
    installation
    configuration
    features
+   development
    api/index
 
 
