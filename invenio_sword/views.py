@@ -212,7 +212,7 @@ class DepositStatusView(SWORDDepositView):
     def delete(self, pid, record: SWORDDeposit):
         record.delete()
         db.session.commit()
-        return record.get_status_as_jsonld()
+        return Response(status=HTTPStatus.NO_CONTENT)
 
 
 class DepositMetadataView(SWORDDepositView):
