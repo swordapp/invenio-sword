@@ -125,8 +125,8 @@ class SWORDDeposit(Deposit):
         elif self["_deposit"].get("status") == "published":
             states.append(
                 {
-                    "@id": "http://purl.org/net/sword/3.0/state/accepted",
-                    "description": "the item is currently accepted",
+                    "@id": "http://purl.org/net/sword/3.0/state/ingested",
+                    "description": "the item is ingested",
                 }
             )
         return states

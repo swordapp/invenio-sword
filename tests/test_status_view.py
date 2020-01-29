@@ -86,7 +86,7 @@ def test_cant_unpublish(api, users, location, es):
 
         response = client.post(url_for("invenio_sword.depid_service_document"))
         assert response.status_code == HTTPStatus.CREATED
-        assert "http://purl.org/net/sword/3.0/state/accepted" in [
+        assert "http://purl.org/net/sword/3.0/state/ingested" in [
             state["@id"] for state in response.json["state"]
         ]
 
