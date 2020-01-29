@@ -49,6 +49,8 @@ class SWORDDeposit(Deposit):
         return functools.partial(SWORDFileObject, pid=self.pid)
 
     def get_status_as_jsonld(self):
+        editable = self["_deposit"].get("status") == "draft"
+
         return {
             "@id": self.sword_status_url,
             "@type": "Status",
@@ -61,13 +63,13 @@ class SWORDDeposit(Deposit):
             "actions": {
                 "getMetadata": True,
                 "getFiles": True,
-                "appendMetadata": True,
-                "appendFiles": True,
-                "replaceMetadata": True,
-                "replaceFiles": True,
-                "deleteMetadata": True,
-                "deleteFiles": True,
-                "deleteObject": True,
+                "appendMetadata": editable,
+                "appendFiles": editable,
+                "replaceMetadata": editable,
+                "replaceFiles": editable,
+                "deleteMetadata": editable,
+                "deleteFiles": editable,
+                "deleteObject": editable,
             },
             "links": self.links,
         }
@@ -123,8 +125,8 @@ class SWORDDeposit(Deposit):
         elif self["_deposit"].get("status") == "published":
             states.append(
                 {
-                    "@id": "http://purl.org/net/sword/3.0/state/accepted",
-                    "description": "the item is currently accepted",
+                    "@id": "http://purl.org/net/sword/3.0/state/ingested",
+                    "description": "the item is ingested",
                 }
             )
         return states

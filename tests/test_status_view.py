@@ -86,7 +86,7 @@ def test_cant_unpublish(api, users, location, es):
 
         response = client.post(url_for("invenio_sword.depid_service_document"))
         assert response.status_code == HTTPStatus.CREATED
-        assert "http://purl.org/net/sword/3.0/state/accepted" in [
+        assert "http://purl.org/net/sword/3.0/state/ingested" in [
             state["@id"] for state in response.json["state"]
         ]
 
@@ -94,3 +94,20 @@ def test_cant_unpublish(api, users, location, es):
             response.headers["Location"], headers={"In-Progress": "true"}
         )
         assert response.status_code == HTTPStatus.CONFLICT
+
+
+def test_delete_status_document(api, users, location, es):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
+        record = SWORDDeposit.create({})
+        record.commit()
+        db.session.commit()
+
+        response = client.delete("/sword/deposit/{}".format(record.pid.pid_value))
+        assert response.status_code == HTTPStatus.NO_CONTENT
+
+        response = client.get("/sword/deposit/{}".format(record.pid.pid_value))
+        assert response.status_code == HTTPStatus.GONE
