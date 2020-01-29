@@ -64,7 +64,6 @@ invenio-records-rest==1.6.4
 invenio-records-ui==1.0.1
 invenio-rest==1.1.3
 invenio-search-ui==1.1.1
--e git+git@github.com:swordapp/invenio-sword.git@f6e544bd548425a76fed70d3b35e902b3eb1965e#egg=invenio_sword
 isodate==0.6.0
 itsdangerous==1.1.0
 Jinja2==2.11.0
