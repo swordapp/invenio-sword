@@ -10,6 +10,16 @@ Welcome to Invenio-SWORD's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   installation
+   configuration
+   features
+   development
+   api/index
+
+
+invenio-sword is an implementation of the `SWORD deposit protocol <https://swordapp.github.io/swordv3/swordv3.html>`_
+for the `Invenio <https://inveniosoftware.org/>`_ ecosystem, building on the `invenio-deposit
+<https://github.com/inveniosoftware/invenio-deposit>`_ component.
 
 
 Indices and tables

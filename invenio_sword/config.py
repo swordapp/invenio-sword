@@ -1,16 +1,18 @@
+from typing import Dict
+
 import pkg_resources
 from invenio_deposit.config import DEPOSIT_REST_ENDPOINTS
 
 from . import permissions
+from .typing import SwordEndpointDefinition
 
 SWORD_MAX_UPLOAD_SIZE = 1024 ** 3  # 1 GiB
 SWORD_MAX_BY_REFERENCE_SIZE = 10 * 1024 ** 3  # 10 GiB
 
 _PID = 'pid(depid,record_class="invenio_sword.api:SWORDDeposit")'
 
-SWORD_ENDPOINTS = {
+SWORD_ENDPOINTS: Dict[str, SwordEndpointDefinition] = {
     name: {
-        **options,
         "packaging_formats": {
             ep.name: ep.load()
             for ep in pkg_resources.iter_entry_points("invenio_sword.packaging")
@@ -28,11 +30,17 @@ SWORD_ENDPOINTS = {
         "read_permission_factory_imp": permissions.check_is_record_owner,
         "update_permission_factory_imp": permissions.check_has_write_scope_and_is_record_owner,
         "delete_permission_factory_imp": permissions.check_has_write_scope_and_is_record_owner,
+        # Routes
         "service_document_route": "/sword/service-document",
         "item_route": "/sword/deposit/<{}:pid_value>".format(_PID),
         "metadata_route": "/sword/deposit/<{}:pid_value>/metadata".format(_PID),
         "fileset_route": "/sword/deposit/<{}:pid_value>/fileset".format(_PID),
         "file_route": "/sword/deposit/<{}:pid_value>/file/<path:key>".format(_PID),
+        # Search
+        "search_class": "invenio_deposit.search:DepositSearch",
+        "indexer_class": None,
+        "search_index": None,
+        "search_type": None,
     }
     for name, options in DEPOSIT_REST_ENDPOINTS.items()
 }
