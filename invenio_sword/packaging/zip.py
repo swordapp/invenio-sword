@@ -9,6 +9,7 @@ import zipfile
 
 from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
+from werkzeug.exceptions import BadRequest
 from werkzeug.exceptions import UnsupportedMediaType
 
 from ..enum import ObjectTagKey
@@ -43,49 +44,52 @@ class SimpleZipPackaging(Packaging):
         )
         unpackaged_objects = []
 
-        with tempfile.TemporaryFile() as f:
-            shutil.copyfileobj(stream, f)
-            f.seek(0)
+        try:
+            with tempfile.TemporaryFile() as f:
+                shutil.copyfileobj(stream, f)
+                f.seek(0)
 
-            with zipfile.ZipFile(f) as zip:
-                names = set(zip.namelist())
+                with zipfile.ZipFile(f) as zip:
+                    names = set(zip.namelist())
 
-                for name in names:
-                    object_version = ObjectVersion.create(
-                        record.bucket,
-                        name,
-                        mimetype=mimetypes.guess_type(name)[0],
-                        stream=zip.open(name),
-                    )
-                    ObjectVersionTag.create(
-                        object_version=object_version,
-                        key=ObjectTagKey.FileSetFile.value,
-                        value="true",
-                    )
-                    ObjectVersionTag.create(
-                        object_version=object_version,
-                        key=ObjectTagKey.DerivedFrom.value,
-                        value=original_deposit_filename,
-                    )
-                    unpackaged_objects.append(object_version)
+                    for name in names:
+                        object_version = ObjectVersion.create(
+                            record.bucket,
+                            name,
+                            mimetype=mimetypes.guess_type(name)[0],
+                            stream=zip.open(name),
+                        )
+                        ObjectVersionTag.create(
+                            object_version=object_version,
+                            key=ObjectTagKey.FileSetFile.value,
+                            value="true",
+                        )
+                        ObjectVersionTag.create(
+                            object_version=object_version,
+                            key=ObjectTagKey.DerivedFrom.value,
+                            value=original_deposit_filename,
+                        )
+                        unpackaged_objects.append(object_version)
 
-            f.seek(0)
+                f.seek(0)
 
-            original_deposit = ObjectVersion.create(
-                record.bucket,
-                original_deposit_filename,
-                mimetype=self.content_type,
-                stream=f,
-            )
-            ObjectVersionTag.create(
-                object_version=original_deposit,
-                key=ObjectTagKey.OriginalDeposit.value,
-                value="true",
-            )
-            ObjectVersionTag.create(
-                object_version=original_deposit,
-                key=ObjectTagKey.Packaging.value,
-                value=self.packaging_name,
-            )
+                original_deposit = ObjectVersion.create(
+                    record.bucket,
+                    original_deposit_filename,
+                    mimetype=self.content_type,
+                    stream=f,
+                )
+                ObjectVersionTag.create(
+                    object_version=original_deposit,
+                    key=ObjectTagKey.OriginalDeposit.value,
+                    value="true",
+                )
+                ObjectVersionTag.create(
+                    object_version=original_deposit,
+                    key=ObjectTagKey.Packaging.value,
+                    value=self.packaging_name,
+                )
 
-        return IngestResult(original_deposit, unpackaged_objects)
+            return IngestResult(original_deposit, unpackaged_objects)
+        except zipfile.BadZipFile as e:
+            raise BadRequest("Bad ZIP file") from e

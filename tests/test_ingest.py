@@ -5,6 +5,12 @@ from http import HTTPStatus
 
 import pytest
 from flask_security import url_for_security
+from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import UnsupportedMediaType
+
+from invenio_sword.api import SWORDDeposit
+from invenio_sword.packaging import SimpleZipPackaging
+from invenio_sword.packaging import SWORDBagItPackaging
 
 original_deposit = (
     object()
@@ -212,3 +218,35 @@ def test_create_with_metadata_and_then_ingest(
             assert expected_link == link
 
         assert len(response.json["links"]) == len(expected_links) + metadata_link_count
+
+
+@pytest.mark.parametrize(
+    "filename,content_type,packaging_class,exception_class",
+    [
+        ("simple.zip", "application/zip", SWORDBagItPackaging, BadRequest),
+        ("binary.svg", "application/zip", SWORDBagItPackaging, BadRequest),
+        ("binary.svg", "application/zip", SimpleZipPackaging, BadRequest),
+        ("binary.svg", "image/svg+xml", SWORDBagItPackaging, UnsupportedMediaType),
+        ("binary.svg", "image/svg+xml", SimpleZipPackaging, UnsupportedMediaType),
+    ],
+)
+def test_bad_files(
+    api,
+    location,
+    filename,
+    content_type,
+    packaging_class,
+    exception_class,
+    fixtures_path,
+):
+    with api.app_context():
+        packaging = packaging_class()
+        record = SWORDDeposit.create({})
+        with pytest.raises(exception_class):
+            with open(os.path.join(fixtures_path, filename), "rb") as stream:
+                packaging.ingest(
+                    record=record,
+                    stream=stream,
+                    filename=filename,
+                    content_type=content_type,
+                )
