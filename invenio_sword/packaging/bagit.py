@@ -126,3 +126,5 @@ class SWORDBagItPackaging(Packaging):
                 raise BadRequest(e.message) from e
             except bagit.BagError as e:
                 raise BadRequest(*e.args) from e
+            except zipfile.BadZipFile as e:
+                raise BadRequest("Bad ZIP file") from e
