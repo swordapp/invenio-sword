@@ -31,6 +31,8 @@ from flask_security import url_for_security
 from invenio_files_rest.models import Bucket
 from invenio_files_rest.models import ObjectVersion
 from invenio_records.models import RecordMetadata
+from sword3common.exceptions import ContentMalformed
+from sword3common.exceptions import ValidationFailed
 
 
 def test_post_service_document_with_bagit_bag(api, users, location, fixtures_path):
@@ -90,15 +92,15 @@ def test_post_service_document_with_bagit_bag(api, users, location, fixtures_pat
 
 
 @pytest.mark.parametrize(
-    "filename,status_code",
+    "filename,error_class",
     [
-        ("bagit-broken-sha.zip", HTTPStatus.BAD_REQUEST),
-        ("bagit-no-bagit-txt.zip", HTTPStatus.BAD_REQUEST),
-        ("bagit-with-fetch.zip", HTTPStatus.NOT_IMPLEMENTED),
+        ("bagit-broken-sha.zip", ValidationFailed),
+        ("bagit-no-bagit-txt.zip", ContentMalformed),
+        ("bagit-with-fetch.zip", ValidationFailed),
     ],
 )
 def test_post_service_document_with_broken_bag(
-    api, users, location, filename, status_code, fixtures_path
+    api, users, location, filename, error_class, fixtures_path
 ):
     with api.test_request_context(), api.test_client() as client:
         client.post(
@@ -116,7 +118,8 @@ def test_post_service_document_with_broken_bag(
                 },
             )
 
-        assert response.status_code == status_code
+        assert response.status_code == error_class.status_code
+        assert response.json["@type"] == error_class.name
 
 
 def test_post_service_document_with_incorrect_content_type(

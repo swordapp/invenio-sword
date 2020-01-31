@@ -11,9 +11,9 @@ import zipfile
 import bagit
 from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
-from werkzeug.exceptions import BadRequest
-from werkzeug.exceptions import NotImplemented
-from werkzeug.exceptions import UnsupportedMediaType
+from sword3common.exceptions import ContentMalformed
+from sword3common.exceptions import ContentTypeNotAcceptable
+from sword3common.exceptions import ValidationFailed
 
 from ..enum import ObjectTagKey
 from ..metadata import SWORDMetadata
@@ -40,7 +40,9 @@ class SWORDBagItPackaging(Packaging):
         content_type: str
     ):
         if content_type != self.content_type:
-            raise UnsupportedMediaType
+            raise ContentTypeNotAcceptable(
+                "Content-Type must be {}".format(content_type)
+            )
 
         original_deposit_filename = (
             record.original_deposit_key_prefix
@@ -80,9 +82,7 @@ class SWORDBagItPackaging(Packaging):
                 bag.validate()
 
                 if next(bag.files_to_be_fetched(), None):
-                    raise NotImplemented(  # noqa: F901
-                        "fetch.txt not supported in SWORD BagIt"
-                    )
+                    raise ValidationFailed("fetch.txt not supported in SWORD BagIt")
 
                 record["bagitInfo"] = bag.info
 
@@ -123,8 +123,8 @@ class SWORDBagItPackaging(Packaging):
                         unpackaged_objects.append(object_version)
                 return IngestResult(original_deposit, unpackaged_objects)
             except bagit.BagValidationError as e:
-                raise BadRequest(e.message) from e
+                raise ValidationFailed(e.message) from e
             except bagit.BagError as e:
-                raise BadRequest(*e.args) from e
+                raise ContentMalformed(*e.args) from e
             except zipfile.BadZipFile as e:
-                raise BadRequest("Bad ZIP file") from e
+                raise ContentMalformed("Bad ZIP file") from e

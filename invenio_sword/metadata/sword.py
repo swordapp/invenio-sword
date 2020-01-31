@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 import typing
 
-from werkzeug.exceptions import BadRequest
-from werkzeug.exceptions import UnsupportedMediaType
+from sword3common.exceptions import ContentMalformed
+from sword3common.exceptions import ContentTypeNotAcceptable
 
 from .base import JSONMetadata
 from invenio_sword.typing import BytesReader
@@ -28,14 +28,14 @@ class SWORDMetadata(JSONMetadata):
         encoding: str = "utf_8",
     ) -> SWORDMetadata:
         if content_type not in (cls.content_type, "application/json"):
-            raise UnsupportedMediaType(
+            raise ContentTypeNotAcceptable(
                 "Content-Type must be {}".format(cls.content_type)
             )
         if isinstance(document, BytesReader):
             try:
                 data = json.load(document, encoding=encoding)
             except json.JSONDecodeError as e:
-                raise BadRequest("Unable to parse JSON") from e
+                raise ContentMalformed("Unable to parse JSON") from e
         else:
             data = document
         data.pop("@id", None)
