@@ -46,12 +46,3 @@ SWORD_ENDPOINTS: Dict[str, SwordEndpointDefinition] = {
     }
     for name, options in DEPOSIT_REST_ENDPOINTS.items()
 }
-
-SWORD_PACKAGING_FORMATS = {
-    ep.name: ep.load()
-    for ep in pkg_resources.iter_entry_points("invenio_sword.packaging")
-}
-
-SWORD_DEFAULT_PACKAGING_FORMAT = "http://purl.org/net/sword/3.0/package/Binary"
-
-SWORD_DEFAULT_METADATA_FORMAT = "http://purl.org/net/sword/3.0/types/Metadata"

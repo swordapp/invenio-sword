@@ -104,10 +104,10 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         :raises NotImplemented: if the ``Packaging`` is not supported
         """
         packaging = request.headers.get(
-            "Packaging", current_app.config["SWORD_DEFAULT_PACKAGING_FORMAT"]
+            "Packaging", self.endpoint_options["default_packaging_format"]
         )
         try:
-            return current_app.config["SWORD_PACKAGING_FORMATS"][packaging]
+            return self.endpoint_options["packaging_formats"][packaging]
         except KeyError as e:
             raise sword3common.exceptions.PackagingFormatNotAcceptable from e
 
