@@ -9,6 +9,7 @@ import zipfile
 
 from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
+from sword3common.constants import PackagingFormat
 from sword3common.exceptions import ContentMalformed
 from sword3common.exceptions import ContentTypeNotAcceptable
 
@@ -25,7 +26,7 @@ __all__ = ["SimpleZipPackaging"]
 
 class SimpleZipPackaging(Packaging):
     content_type = "application/zip"
-    packaging_name = "http://purl.org/net/sword/3.0/package/SimpleZip"
+    packaging_name = PackagingFormat.SimpleZip
 
     def ingest(
         self,

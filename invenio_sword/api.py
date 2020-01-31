@@ -14,6 +14,9 @@ from invenio_files_rest.models import ObjectVersionTag
 from invenio_pidstore.resolver import Resolver
 from invenio_records_files.api import FileObject
 from sqlalchemy import true
+from sword3common.constants import DepositState
+from sword3common.constants import FileState
+from sword3common.constants import Rel
 from werkzeug.exceptions import Conflict
 from werkzeug.http import parse_options_header
 
@@ -82,18 +85,18 @@ class SWORDDeposit(Deposit):
             link = {
                 "@id": file.rest_file_url,
                 "contentType": file.obj.mimetype,
-                "status": "http://purl.org/net/sword/3.0/filestate/ingested",
+                "status": FileState.Ingested,
             }
 
             tags = {tag.key: tag.value for tag in file.tags}
             rel = set()
             if tags.get(ObjectTagKey.OriginalDeposit.value) == "true":
-                rel.add("http://purl.org/net/sword/3.0/terms/originalDeposit")
+                rel.add(Rel.OriginalDeposit)
             if tags.get(ObjectTagKey.FileSetFile.value) == "true":
-                rel.add("http://purl.org/net/sword/3.0/terms/fileSetFile")
+                rel.add(Rel.FileSetFile)
             derived_from = tags.get(ObjectTagKey.DerivedFrom.value)
             if derived_from:
-                rel.add("http://purl.org/net/sword/3.0/terms/derivedResource")
+                rel.add(Rel.DerivedResource)
                 link["derivedFrom"] = url_for(
                     "invenio_sword.{}_file".format(self.pid.pid_type),
                     pid_value=self.pid.pid_value,
@@ -103,7 +106,7 @@ class SWORDDeposit(Deposit):
             if ObjectTagKey.Packaging.value in tags:
                 link["packaging"] = tags[ObjectTagKey.Packaging.value]
             if ObjectTagKey.MetadataFormat.value in tags:
-                rel.add("http://purl.org/net/sword/3.0/terms/formattedMetadata")
+                rel.add(Rel.FormattedMetadata)
                 link["metadataFormat"] = tags[ObjectTagKey.MetadataFormat.value]
 
             link["rel"] = sorted(rel)
@@ -118,16 +121,13 @@ class SWORDDeposit(Deposit):
         if self["_deposit"].get("status") == "draft":
             states.append(
                 {
-                    "@id": "http://purl.org/net/sword/3.0/state/inProgress",
+                    "@id": DepositState.InProgress,
                     "description": "the item is currently inProgress",
                 }
             )
         elif self["_deposit"].get("status") == "published":
             states.append(
-                {
-                    "@id": "http://purl.org/net/sword/3.0/state/ingested",
-                    "description": "the item is ingested",
-                }
+                {"@id": DepositState.Ingested, "description": "the item is ingested",}
             )
         return states
 

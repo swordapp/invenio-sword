@@ -11,6 +11,7 @@ import zipfile
 import bagit
 from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
+from sword3common.constants import PackagingFormat
 from sword3common.exceptions import ContentMalformed
 from sword3common.exceptions import ContentTypeNotAcceptable
 from sword3common.exceptions import ValidationFailed
@@ -29,7 +30,7 @@ __all__ = ["SWORDBagItPackaging"]
 
 class SWORDBagItPackaging(Packaging):
     content_type = "application/zip"
-    packaging_name = "http://purl.org/net/sword/3.0/package/SWORDBagIt"
+    packaging_name = PackagingFormat.SwordBagIt
 
     def ingest(
         self,

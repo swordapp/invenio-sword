@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import typing
 
+from sword3common.constants import MetadataFormat
 from sword3common.exceptions import ContentMalformed
 from sword3common.exceptions import ContentTypeNotAcceptable
 
@@ -15,7 +16,7 @@ __all__ = ["SWORDMetadata"]
 class SWORDMetadata(JSONMetadata):
     content_type = "application/ld+json"
     filename = "sword.jsonld"
-    metadata_format = "http://purl.org/net/sword/3.0/types/Metadata"
+    metadata_format = MetadataFormat.Sword
 
     def __init__(self, data):
         self.data = data
