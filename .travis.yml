@@ -71,6 +71,7 @@ before_install:
 install:
   - pip install tox-travis pre-commit pytest pytest-cov codecov sphinx
   - pip install elasticsearch invenio-access invenio-search flask-oauthlib elasticsearch-dsl invenio-app
+  - pip install -e 'git+https://github.com/swordapp/sword3-common.py.git#egg=sword3common'
   - pip install -e .[$EXTRAS]
 
 before_script:

@@ -5,8 +5,8 @@ from http import HTTPStatus
 
 import pytest
 from flask_security import url_for_security
-from werkzeug.exceptions import BadRequest
-from werkzeug.exceptions import UnsupportedMediaType
+from sword3common.exceptions import ContentMalformed
+from sword3common.exceptions import ContentTypeNotAcceptable
 
 from invenio_sword.api import SWORDDeposit
 from invenio_sword.packaging import SimpleZipPackaging
@@ -223,11 +223,11 @@ def test_create_with_metadata_and_then_ingest(
 @pytest.mark.parametrize(
     "filename,content_type,packaging_class,exception_class",
     [
-        ("simple.zip", "application/zip", SWORDBagItPackaging, BadRequest),
-        ("binary.svg", "application/zip", SWORDBagItPackaging, BadRequest),
-        ("binary.svg", "application/zip", SimpleZipPackaging, BadRequest),
-        ("binary.svg", "image/svg+xml", SWORDBagItPackaging, UnsupportedMediaType),
-        ("binary.svg", "image/svg+xml", SimpleZipPackaging, UnsupportedMediaType),
+        ("simple.zip", "application/zip", SWORDBagItPackaging, ContentMalformed),
+        ("binary.svg", "application/zip", SWORDBagItPackaging, ContentMalformed),
+        ("binary.svg", "application/zip", SimpleZipPackaging, ContentMalformed),
+        ("binary.svg", "image/svg+xml", SWORDBagItPackaging, ContentTypeNotAcceptable),
+        ("binary.svg", "image/svg+xml", SimpleZipPackaging, ContentTypeNotAcceptable),
     ],
 )
 def test_bad_files(

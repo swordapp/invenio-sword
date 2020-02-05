@@ -5,6 +5,7 @@ import typing
 
 from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
+from sword3common.constants import PackagingFormat
 
 from ..enum import ObjectTagKey
 from ..typing import BytesReader
@@ -18,7 +19,7 @@ __all__ = ["BinaryPackaging"]
 
 
 class BinaryPackaging(Packaging):
-    packaging_name = "http://purl.org/net/sword/3.0/package/Binary"
+    packaging_name = PackagingFormat.Binary
 
     def ingest(
         self,

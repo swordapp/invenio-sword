@@ -250,7 +250,8 @@ def test_put_metadata_document_with_unsupported_format(api, users, location, es)
             },
             data=json.dumps({}),
         )
-        assert response.status_code == HTTPStatus.NOT_IMPLEMENTED
+        assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+        assert response.json["@type"] == "MetadataFormatNotAcceptable"
 
 
 def test_delete_metadata_document(api, users, location, es):

@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from werkzeug.exceptions import UnsupportedMediaType
+from sword3common.exceptions import ContentTypeNotAcceptable
 
 from invenio_sword.api import SWORDDeposit
 from invenio_sword.metadata import Metadata
@@ -27,7 +27,7 @@ def test_parse_document(metadata_document):
 
 
 def test_parse_document_with_wrong_content_type(metadata_document):
-    with pytest.raises(UnsupportedMediaType):
+    with pytest.raises(ContentTypeNotAcceptable):
         SWORDMetadata.from_document(metadata_document, content_type="text/yaml")
 
 

@@ -9,8 +9,9 @@ import zipfile
 
 from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
-from werkzeug.exceptions import BadRequest
-from werkzeug.exceptions import UnsupportedMediaType
+from sword3common.constants import PackagingFormat
+from sword3common.exceptions import ContentMalformed
+from sword3common.exceptions import ContentTypeNotAcceptable
 
 from ..enum import ObjectTagKey
 from ..typing import BytesReader
@@ -25,7 +26,7 @@ __all__ = ["SimpleZipPackaging"]
 
 class SimpleZipPackaging(Packaging):
     content_type = "application/zip"
-    packaging_name = "http://purl.org/net/sword/3.0/package/SimpleZip"
+    packaging_name = PackagingFormat.SimpleZip
 
     def ingest(
         self,
@@ -36,7 +37,9 @@ class SimpleZipPackaging(Packaging):
         content_type: str
     ):
         if content_type != self.content_type:
-            raise UnsupportedMediaType
+            raise ContentTypeNotAcceptable(
+                "Content-Type must be {}".format(content_type)
+            )
 
         original_deposit_filename = (
             record.original_deposit_key_prefix
@@ -92,4 +95,4 @@ class SimpleZipPackaging(Packaging):
 
             return IngestResult(original_deposit, unpackaged_objects)
         except zipfile.BadZipFile as e:
-            raise BadRequest("Bad ZIP file") from e
+            raise ContentMalformed("Bad ZIP file") from e

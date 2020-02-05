@@ -1,8 +1,11 @@
+import json
 import typing
 from copy import deepcopy
 from functools import partial
 from http import HTTPStatus
 
+import sword3common.constants
+import sword3common.exceptions
 from flask import Blueprint
 from flask import current_app
 from flask import redirect
@@ -18,7 +21,6 @@ from invenio_records_rest.views import pass_record
 from invenio_records_rest.views import verify_record_permission
 from invenio_rest import ContentNegotiatedMethodView
 from werkzeug.exceptions import Conflict
-from werkzeug.exceptions import NotImplemented
 from werkzeug.http import parse_options_header
 from werkzeug.utils import cached_property
 
@@ -54,6 +56,24 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         for key, value in ctx.items():
             setattr(self, key, value)
 
+    def dispatch_request(self, *args, **kwargs):
+        try:
+            return super().dispatch_request(*args, **kwargs)
+        except sword3common.exceptions.SwordException as e:
+            return Response(
+                json.dumps(
+                    {
+                        "@context": sword3common.constants.JSON_LD_CONTEXT,
+                        "@type": e.name,
+                        "error": e.reason,
+                        "log": e.message,
+                        "timestamp": e.timestamp.isoformat(),
+                    }
+                ),
+                content_type="application/ld+json",
+                status=e.status_code,
+            )
+
     @cached_property
     def endpoint_options(self) -> typing.Dict[str, typing.Any]:
         """Configuration endpoints for this view's SWORD endpoint"""
@@ -75,9 +95,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         try:
             return self.endpoint_options["metadata_formats"][self.metadata_format]
         except KeyError as e:
-            raise NotImplemented(  # noqa: F901
-                "Unsupported Metadata-Format header value"
-            ) from e
+            raise sword3common.exceptions.MetadataFormatNotAcceptable from e
 
     @cached_property
     def packaging_class(self) -> typing.Type[Packaging]:
@@ -86,14 +104,12 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         :raises NotImplemented: if the ``Packaging`` is not supported
         """
         packaging = request.headers.get(
-            "Packaging", current_app.config["SWORD_DEFAULT_PACKAGING_FORMAT"]
+            "Packaging", self.endpoint_options["default_packaging_format"]
         )
         try:
-            return current_app.config["SWORD_PACKAGING_FORMATS"][packaging]
+            return self.endpoint_options["packaging_formats"][packaging]
         except KeyError as e:
-            raise NotImplemented(  # noqa: F901
-                "Unsupported Packaging header value"
-            ) from e
+            raise sword3common.exceptions.PackagingFormatNotAcceptable from e
 
     @cached_property
     def in_progress(self) -> bool:
@@ -151,8 +167,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             record.set_metadata(None, self.metadata_class, replace=replace)
 
         if by_reference_deposit:  # pragma: nocover
-            # This is the werkzeug HTTP exception, not the stdlib singleton, but flake8 can't work that out.
-            raise NotImplemented  # noqa: F901
+            raise sword3common.ByReferenceNotAllowed
 
         if not (metadata_deposit or by_reference_deposit) and (
             request.content_type or request.content_length

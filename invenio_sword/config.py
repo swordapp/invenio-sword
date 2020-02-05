@@ -2,6 +2,8 @@ from typing import Dict
 
 import pkg_resources
 from invenio_deposit.config import DEPOSIT_REST_ENDPOINTS
+from sword3common.constants import MetadataFormat
+from sword3common.constants import PackagingFormat
 
 from . import permissions
 from .typing import SwordEndpointDefinition
@@ -21,8 +23,8 @@ SWORD_ENDPOINTS: Dict[str, SwordEndpointDefinition] = {
             ep.name: ep.load()
             for ep in pkg_resources.iter_entry_points("invenio_sword.metadata")
         },
-        "default_packaging_format": "http://purl.org/net/sword/3.0/package/Binary",
-        "default_metadata_format": "http://purl.org/net/sword/3.0/types/Metadata",
+        "default_packaging_format": PackagingFormat.Binary,
+        "default_metadata_format": MetadataFormat.Sword,
         "record_class": "invenio_sword.api:Deposit",
         "default_media_type": "application/ld+json",
         # Permissions
@@ -44,12 +46,3 @@ SWORD_ENDPOINTS: Dict[str, SwordEndpointDefinition] = {
     }
     for name, options in DEPOSIT_REST_ENDPOINTS.items()
 }
-
-SWORD_PACKAGING_FORMATS = {
-    ep.name: ep.load()
-    for ep in pkg_resources.iter_entry_points("invenio_sword.packaging")
-}
-
-SWORD_DEFAULT_PACKAGING_FORMAT = "http://purl.org/net/sword/3.0/package/Binary"
-
-SWORD_DEFAULT_METADATA_FORMAT = "http://purl.org/net/sword/3.0/types/Metadata"
