@@ -314,6 +314,43 @@ class SWORDDeposit(Deposit):
 
             return metadata
 
+    def set_by_reference_files(self, by_reference_files, replace=True):
+        object_versions = []
+        for by_reference_file in by_reference_files:
+            content_disposition, content_disposition_options = parse_options_header(
+                by_reference_file["contentDisposition"],
+            )
+            content_type, _ = parse_options_header(by_reference_file["contentType"])
+            filename = content_disposition_options["filename"]
+            object_version = ObjectVersion.create(
+                self.bucket, filename, mimetype=content_type
+            )
+            ObjectVersionTag.create(
+                object_version=object_version,
+                key=ObjectTagKey.ByReferenceURL.value,
+                value=by_reference_file["@id"],
+            )
+            ObjectVersionTag.create(
+                object_version=object_version,
+                key=ObjectTagKey.ByReferenceDereference.value,
+                value="true" if by_reference_file["dereference"] else "false",
+            )
+            if "ttl" in by_reference_file:
+                ObjectVersionTag.create(
+                    object_version=object_version,
+                    key=ObjectTagKey.ByReferenceTTL.value,
+                    value=by_reference_file["ttl"],
+                )
+            if "contentLength" in by_reference_file:
+                ObjectVersionTag.create(
+                    object_version=object_version,
+                    key=ObjectTagKey.ByReferenceContentLength.value,
+                    value=str(by_reference_file["contentLength"]),
+                )
+            object_versions.append(object_version)
+
+        return IngestResult(original_deposit=None, unpackaged_objects=object_versions)
+
 
 pid_resolver = Resolver(
     pid_type="depid",
