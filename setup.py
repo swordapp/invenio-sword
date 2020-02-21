@@ -50,6 +50,7 @@ install_requires = [
     "SQLAlchemy-Utils[encrypted]>=0.33",
     "dictdiffer>=0.5.0.post1",
     "invenio-assets>=1.0.0",
+    "invenio-celery",
     "invenio-db[versioning]>=1.0.1",
     "invenio-deposit>=1.0.0a1",
     "invenio-files-rest>=1.0.1",
@@ -102,6 +103,7 @@ setup(
         "invenio_sword.metadata": [
             "http://purl.org/net/sword/3.0/types/Metadata = invenio_sword.metadata:SWORDMetadata",
         ],
+        "invenio_celery.tasks": ["invenio_sword = invenio_sword.tasks",],
     },
     install_requires=install_requires,
     setup_requires=setup_requires,
