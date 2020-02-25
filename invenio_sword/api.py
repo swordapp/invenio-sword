@@ -15,12 +15,12 @@ from invenio_pidstore.resolver import Resolver
 from invenio_records_files.api import FileObject
 from sqlalchemy import true
 from sword3common.constants import DepositState
-from sword3common.constants import FileState
 from sword3common.constants import Rel
 from werkzeug.exceptions import Conflict
 from werkzeug.http import parse_options_header
 
 from .metadata import Metadata
+from invenio_sword.enum import FileState
 from invenio_sword.enum import ObjectTagKey
 from invenio_sword.metadata import SWORDMetadata
 from invenio_sword.packaging import IngestResult
@@ -82,13 +82,16 @@ class SWORDDeposit(Deposit):
 
         links = []
         for file in self.files or ():
+            tags = {tag.key: tag.value for tag in file.tags}
+
             link = {
                 "@id": file.rest_file_url,
                 "contentType": file.obj.mimetype,
-                "status": FileState.Ingested,
+                "status": tags.get(
+                    ObjectTagKey.FileState.value, FileState.Ingested.value
+                ),
             }
 
-            tags = {tag.key: tag.value for tag in file.tags}
             rel = set()
             if tags.get(ObjectTagKey.OriginalDeposit.value) == "true":
                 rel.add(Rel.OriginalDeposit)
@@ -326,6 +329,11 @@ class SWORDDeposit(Deposit):
             filename = content_disposition_options["filename"]
             object_version = ObjectVersion.create(
                 self.bucket, filename, mimetype=content_type
+            )
+            ObjectVersionTag.create(
+                object_version=object_version,
+                key=ObjectTagKey.FileState.value,
+                value=FileState.Pending.value,
             )
             ObjectVersionTag.create(
                 object_version=object_version,

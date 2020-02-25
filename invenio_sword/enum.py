@@ -7,7 +7,16 @@ class ObjectTagKey(enum.Enum):
     FileSetFile = "invenio_sword.fileSetFile"
     Packaging = "invenio_sword.packaging"
     MetadataFormat = "invenio_sword.metadataFormat"
+    FileState = "invenio_sword.fileState"
     ByReferenceURL = "invenio_sword.byReferenceURL"
     ByReferenceDereference = "invenio_sword.byReferenceDereference"
     ByReferenceTTL = "invenio_sword.byReferenceTTL"
     ByReferenceContentLength = "invenio_sword.byReferenceContentLength"
+
+
+class FileState(enum.Enum):
+    Pending = "http://purl.org/net/sword/3.0/filestate/pending"
+    Downloading = "http://purl.org/net/sword/3.0/filestate/downloading"
+    Unpacking = "http://purl.org/net/sword/3.0/filestate/unpacking"
+    Error = "http://purl.org/net/sword/3.0/filestate/error"
+    Ingested = "http://purl.org/net/sword/3.0/filestate/ingested"
