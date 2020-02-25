@@ -3,10 +3,18 @@ import unittest.mock
 from http import HTTPStatus
 
 import pytest
+import pytest_httpserver
 from flask_security import url_for_security
+from invenio_db import db
 from invenio_files_rest.models import Bucket
 from invenio_files_rest.models import ObjectVersion
 from sword3common.constants import JSON_LD_CONTEXT
+from sword3common.constants import PackagingFormat
+
+from invenio_sword import tasks
+from invenio_sword.enum import FileState
+from invenio_sword.enum import ObjectTagKey
+from invenio_sword.utils import TagManager
 
 
 @pytest.mark.parametrize(
@@ -54,7 +62,9 @@ def test_by_reference_validation(
         assert not (set(response.json["errors"]) & set(fields_without_errors))
 
 
-def test_by_reference_deposit(api, users, location, es, remote_resource_server):
+def test_by_reference_deposit(
+    api, users, location, es, httpserver: pytest_httpserver.HTTPServer
+):
     with api.test_request_context(), api.test_client() as client, unittest.mock.patch(
         "invenio_sword.tasks.fetch_by_reference_file"
     ) as fetch_by_reference_file:
@@ -71,7 +81,7 @@ def test_by_reference_deposit(api, users, location, es, remote_resource_server):
                     "@type": "ByReference",
                     "byReferenceFiles": [
                         {
-                            "@id": f"{remote_resource_server}/some-resource.json",
+                            "@id": httpserver.url_for("some-resource.json"),
                             "contentDisposition": "attachment; filename=some-resource.json",
                             "contentType": "application/json",
                             "dereference": True,
@@ -93,3 +103,56 @@ def test_by_reference_deposit(api, users, location, es, remote_resource_server):
         ).one()
 
         fetch_by_reference_file.delay.assert_called_once_with(object_version.version_id)
+
+        # Ensure that no requests were made
+        assert httpserver.log == []
+
+
+def test_fetch_task(api, users, location, es, httpserver: pytest_httpserver.HTTPServer):
+    file_contents = "File contents.\n"
+
+    with api.test_request_context(), unittest.mock.patch(
+        "invenio_sword.tasks.unpack_object"
+    ) as unpack_object:
+        object_version = ObjectVersion.create(
+            bucket=Bucket.create(), key="some-file.txt"
+        )
+        TagManager(object_version).update(
+            {
+                ObjectTagKey.ByReferenceURL: httpserver.url_for("some-file.txt"),
+                ObjectTagKey.Packaging: PackagingFormat.SimpleZip,
+            }
+        )
+
+        httpserver.expect_request("/some-file.txt").respond_with_data(file_contents)
+
+        db.session.refresh(object_version)
+        tasks.fetch_by_reference_file(object_version.version_id)
+
+        # The downloaded file was queued for unpacking
+        unpack_object.delay.assert_called_once_with(object_version.version_id)
+
+        # Check requests
+        assert len(httpserver.log) == 1
+        assert httpserver.log[0][0].path == "/some-file.txt"
+
+        db.session.refresh(object_version)
+        assert object_version.file is not None
+        assert object_version.file.storage().open().read() == file_contents.encode(
+            "utf-8"
+        )
+
+        assert TagManager(object_version) == {
+            ObjectTagKey.ByReferenceURL: httpserver.url_for("some-file.txt"),
+            ObjectTagKey.Packaging: PackagingFormat.SimpleZip,
+            ObjectTagKey.FileState: FileState.Unpacking,
+        }
+
+
+def test_fetch_without_url(api, location, es):
+    with api.test_request_context():
+        object_version = ObjectVersion.create(
+            bucket=Bucket.create(), key="some-file.txt"
+        )
+        with pytest.raises(ValueError):
+            tasks.fetch_by_reference_file(object_version.version_id)
