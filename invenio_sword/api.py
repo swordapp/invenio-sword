@@ -314,13 +314,15 @@ class SWORDDeposit(Deposit):
 
             return metadata
 
-    def set_by_reference_files(self, by_reference_files, replace=True):
+    def set_by_reference_files(
+        self, by_reference_files, dereference_policy, replace=True
+    ):
         object_versions = []
         for by_reference_file in by_reference_files:
             content_disposition, content_disposition_options = parse_options_header(
-                by_reference_file["contentDisposition"],
+                by_reference_file["content_disposition"],
             )
-            content_type, _ = parse_options_header(by_reference_file["contentType"])
+            content_type, _ = parse_options_header(by_reference_file["content_type"])
             filename = content_disposition_options["filename"]
             object_version = ObjectVersion.create(
                 self.bucket, filename, mimetype=content_type
@@ -328,7 +330,7 @@ class SWORDDeposit(Deposit):
             ObjectVersionTag.create(
                 object_version=object_version,
                 key=ObjectTagKey.ByReferenceURL.value,
-                value=by_reference_file["@id"],
+                value=by_reference_file["uri"],
             )
             ObjectVersionTag.create(
                 object_version=object_version,

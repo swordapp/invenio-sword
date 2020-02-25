@@ -1,9 +1,11 @@
+import datetime
 import json
 import typing
 from copy import deepcopy
 from functools import partial
 from http import HTTPStatus
 
+import marshmallow
 import sword3common.constants
 import sword3common.exceptions
 from flask import Blueprint
@@ -20,7 +22,6 @@ from invenio_records_rest.views import need_record_permission
 from invenio_records_rest.views import pass_record
 from invenio_records_rest.views import verify_record_permission
 from invenio_rest import ContentNegotiatedMethodView
-from sword3common import ByReference
 from werkzeug.exceptions import Conflict
 from werkzeug.http import parse_options_header
 from werkzeug.utils import cached_property
@@ -30,6 +31,7 @@ from .api import SWORDDeposit
 from .metadata import Metadata
 from .packaging import IngestResult
 from .packaging import Packaging
+from .schemas import ByReferenceSchema
 from .typing import BytesReader
 from .typing import SwordEndpointDefinition
 
@@ -73,6 +75,22 @@ class SWORDDepositView(ContentNegotiatedMethodView):
                 ),
                 content_type="application/ld+json",
                 status=e.status_code,
+            )
+        except marshmallow.exceptions.ValidationError as e:
+            return Response(
+                json.dumps(
+                    {
+                        "@context": sword3common.constants.JSON_LD_CONTEXT,
+                        "@type": sword3common.exceptions.ValidationFailed.name,
+                        "error": sword3common.exceptions.ValidationFailed.reason,
+                        "timestamp": datetime.datetime.now(
+                            tz=datetime.timezone.utc
+                        ).isoformat(),
+                        "errors": e.messages,
+                    }
+                ),
+                content_type="application/ld+json",
+                status=sword3common.exceptions.ValidationFailed.status_code,
             )
 
     @cached_property
@@ -169,14 +187,20 @@ class SWORDDepositView(ContentNegotiatedMethodView):
 
         if by_reference_deposit:  # pragma: nocover
             if metadata_deposit:
-                by_reference = ByReference(request.json["by-reference"])
+                by_reference = ByReferenceSchema().load(request.json["by-reference"])
             else:
-                by_reference = ByReference(request.json)
+                by_reference = ByReferenceSchema().load(request.json)
             record.set_by_reference_files(
-                by_reference.data["byReferenceFiles"], replace=replace
+                by_reference["files"],
+                dereference_policy=self.endpoint_options["dereference_policy"],
+                replace=replace,
             )
         elif replace:
-            record.set_by_reference_files([], replace=replace)
+            record.set_by_reference_files(
+                [],
+                dereference_policy=self.endpoint_options["dereference_policy"],
+                replace=replace,
+            )
 
         if not (metadata_deposit or by_reference_deposit) and (
             request.content_type or request.content_length
