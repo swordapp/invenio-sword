@@ -349,6 +349,11 @@ class SWORDDeposit(Deposit):
                     key=ObjectTagKey.ByReferenceContentLength.value,
                     value=str(by_reference_file["contentLength"]),
                 )
+            if dereference_policy(object_version, by_reference_file):
+                from . import tasks
+
+                tasks.fetch_by_reference_file.delay(object_version.version_id)
+
             object_versions.append(object_version)
 
         return IngestResult(original_deposit=None, unpackaged_objects=object_versions)
