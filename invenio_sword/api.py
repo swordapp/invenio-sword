@@ -20,13 +20,13 @@ from werkzeug.exceptions import Conflict
 from werkzeug.http import parse_options_header
 
 from .metadata import Metadata
+from .utils import TagManager
 from invenio_sword.enum import FileState
 from invenio_sword.enum import ObjectTagKey
 from invenio_sword.metadata import SWORDMetadata
 from invenio_sword.packaging import IngestResult
 from invenio_sword.packaging import Packaging
 from invenio_sword.typing import BytesReader
-
 
 logger = logging.getLogger(__name__)
 
@@ -303,17 +303,11 @@ class SWORDDeposit(Deposit):
                 key=metadata_filename,
                 stream=io.BytesIO(bytes(metadata)),
             )
-            ObjectVersionTag.create(
-                object_version=object_version,
-                key=ObjectTagKey.MetadataFormat.value,
-                value=metadata_class.metadata_format,
-            )
+
+            tags = TagManager(object_version)
+            tags[ObjectTagKey.MetadataFormat] = metadata_class.metadata_format
             if derived_from:
-                ObjectVersionTag.create(
-                    object_version=object_version,
-                    key=ObjectTagKey.DerivedFrom.value,
-                    value=derived_from,
-                )
+                tags[ObjectTagKey.DerivedFrom] = derived_from
 
             return metadata
 
@@ -330,33 +324,25 @@ class SWORDDeposit(Deposit):
             object_version = ObjectVersion.create(
                 self.bucket, filename, mimetype=content_type
             )
-            ObjectVersionTag.create(
-                object_version=object_version,
-                key=ObjectTagKey.FileState.value,
-                value=FileState.Pending.value,
-            )
-            ObjectVersionTag.create(
-                object_version=object_version,
-                key=ObjectTagKey.ByReferenceURL.value,
-                value=by_reference_file["uri"],
-            )
-            ObjectVersionTag.create(
-                object_version=object_version,
-                key=ObjectTagKey.ByReferenceDereference.value,
-                value="true" if by_reference_file["dereference"] else "false",
+            tags = TagManager(object_version)
+            tags.update(
+                {
+                    ObjectTagKey.FileState: FileState.Pending,
+                    ObjectTagKey.ByReferenceURL: by_reference_file["uri"],
+                    ObjectTagKey.OriginalDeposit: "true",
+                    ObjectTagKey.Packaging: by_reference_file["packaging"],
+                    ObjectTagKey.ByReferenceDereference: (
+                        "true" if by_reference_file["dereference"] else "false"
+                    ),
+                }
             )
             if "ttl" in by_reference_file:
-                ObjectVersionTag.create(
-                    object_version=object_version,
-                    key=ObjectTagKey.ByReferenceTTL.value,
-                    value=by_reference_file["ttl"],
-                )
+                tags[ObjectTagKey.ByReferenceTTL] = by_reference_file["ttl"]
             if "contentLength" in by_reference_file:
-                ObjectVersionTag.create(
-                    object_version=object_version,
-                    key=ObjectTagKey.ByReferenceContentLength.value,
-                    value=str(by_reference_file["contentLength"]),
+                tags[ObjectTagKey.ByReferenceContentLength] = str(
+                    by_reference_file["contentLength"]
                 )
+
             if dereference_policy(object_version, by_reference_file):
                 from . import tasks
 

@@ -8,13 +8,13 @@ import uuid
 import zipfile
 
 from invenio_files_rest.models import ObjectVersion
-from invenio_files_rest.models import ObjectVersionTag
 from sword3common.constants import PackagingFormat
 from sword3common.exceptions import ContentMalformed
 from sword3common.exceptions import ContentTypeNotAcceptable
 
 from ..enum import ObjectTagKey
 from ..typing import BytesReader
+from ..utils import TagManager
 from .base import IngestResult
 from .base import Packaging
 
@@ -62,15 +62,13 @@ class SimpleZipPackaging(Packaging):
                             mimetype=mimetypes.guess_type(name)[0],
                             stream=zip.open(name),
                         )
-                        ObjectVersionTag.create(
-                            object_version=object_version,
-                            key=ObjectTagKey.FileSetFile.value,
-                            value="true",
-                        )
-                        ObjectVersionTag.create(
-                            object_version=object_version,
-                            key=ObjectTagKey.DerivedFrom.value,
-                            value=original_deposit_filename,
+
+                        tags = TagManager(object_version)
+                        tags.update(
+                            {
+                                ObjectTagKey.FileSetFile: "true",
+                                ObjectTagKey.DerivedFrom: original_deposit_filename,
+                            }
                         )
                         unpackaged_objects.append(object_version)
 
@@ -82,15 +80,13 @@ class SimpleZipPackaging(Packaging):
                     mimetype=self.content_type,
                     stream=f,
                 )
-                ObjectVersionTag.create(
-                    object_version=original_deposit,
-                    key=ObjectTagKey.OriginalDeposit.value,
-                    value="true",
-                )
-                ObjectVersionTag.create(
-                    object_version=original_deposit,
-                    key=ObjectTagKey.Packaging.value,
-                    value=self.packaging_name,
+
+                tags = TagManager(original_deposit)
+                tags.update(
+                    {
+                        ObjectTagKey.OriginalDeposit: "true",
+                        ObjectTagKey.Packaging: self.packaging_name,
+                    }
                 )
 
             return IngestResult(original_deposit, unpackaged_objects)

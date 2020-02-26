@@ -4,11 +4,11 @@ import mimetypes
 import typing
 
 from invenio_files_rest.models import ObjectVersion
-from invenio_files_rest.models import ObjectVersionTag
 from sword3common.constants import PackagingFormat
 
 from ..enum import ObjectTagKey
 from ..typing import BytesReader
+from ..utils import TagManager
 from .base import IngestResult
 from .base import Packaging
 
@@ -40,15 +40,9 @@ class BinaryPackaging(Packaging):
             record.bucket, filename, mimetype=content_type, stream=stream
         )
 
-        ObjectVersionTag.create(
-            object_version=object_version,
-            key=ObjectTagKey.OriginalDeposit.value,
-            value="true",
-        )
-        ObjectVersionTag.create(
-            object_version=object_version,
-            key=ObjectTagKey.FileSetFile.value,
-            value="true",
+        tags = TagManager(object_version)
+        tags.update(
+            {ObjectTagKey.OriginalDeposit: "true", ObjectTagKey.FileSetFile: "true",}
         )
 
         return IngestResult(object_version)
