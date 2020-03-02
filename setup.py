@@ -105,6 +105,7 @@ setup(
     },
     install_requires=install_requires,
     setup_requires=setup_requires,
+    extras_require={"test": ["pytest", "pytest-httpserver",]},
     classifiers=[
         "Environment :: Web Environment",
         "Intended Audience :: Developers",
