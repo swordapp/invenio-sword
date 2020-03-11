@@ -8,10 +8,12 @@ from flask_security import url_for_security
 from invenio_db import db
 from invenio_files_rest.models import Bucket
 from invenio_files_rest.models import ObjectVersion
+from invenio_records.models import RecordMetadata
 from sword3common.constants import JSON_LD_CONTEXT
 from sword3common.constants import PackagingFormat
 
 from invenio_sword import tasks
+from invenio_sword.api import SWORDDeposit
 from invenio_sword.enum import FileState
 from invenio_sword.enum import ObjectTagKey
 from invenio_sword.utils import TagManager
@@ -63,11 +65,14 @@ def test_by_reference_validation(
 
 
 def test_by_reference_deposit(
-    api, users, location, es, httpserver: pytest_httpserver.HTTPServer
+    api,
+    users,
+    location,
+    es,
+    httpserver: pytest_httpserver.HTTPServer,
+    task_delay: unittest.mock.Mock,
 ):
-    with api.test_request_context(), api.test_client() as client, unittest.mock.patch(
-        "invenio_sword.tasks.fetch_by_reference_file"
-    ) as fetch_by_reference_file:
+    with api.test_request_context(), api.test_client() as client:
         client.post(
             url_for_security("login"),
             data={"email": users[0]["email"], "password": "tester"},
@@ -102,24 +107,38 @@ def test_by_reference_deposit(
             ObjectVersion.bucket == bucket
         ).one()
 
-        fetch_by_reference_file.delay.assert_called_once_with(object_version.version_id)
+        record_metadata = RecordMetadata.query.one()
+
+        assert task_delay.call_args_list == (
+            [
+                unittest.mock.call(
+                    tasks.dereference_object.s(
+                        str(record_metadata.id), str(object_version.version_id)
+                    )
+                    | tasks.unpack_object.si(
+                        str(record_metadata.id), str(object_version.version_id)
+                    )
+                )
+            ]
+        )
 
         # Ensure that no requests were made
         assert httpserver.log == []
 
 
-def test_fetch_task(api, users, location, es, httpserver: pytest_httpserver.HTTPServer):
+def test_fetch_task(
+    api, users, location, es, httpserver: pytest_httpserver.HTTPServer, task_delay
+):
     file_contents = "File contents.\n"
 
-    with api.test_request_context(), unittest.mock.patch(
-        "invenio_sword.tasks.unpack_object"
-    ) as unpack_object:
-        object_version = ObjectVersion.create(
-            bucket=Bucket.create(), key="some-file.txt"
-        )
+    with api.test_request_context():
+        record = SWORDDeposit.create({})
+        object_version = ObjectVersion.create(bucket=record.bucket, key="some-file.txt")
         TagManager(object_version).update(
             {
                 ObjectTagKey.ByReferenceURL: httpserver.url_for("some-file.txt"),
+                # This one should get removed after dereferencing
+                ObjectTagKey.ByReferenceNotDeleted: "true",
                 ObjectTagKey.Packaging: PackagingFormat.SimpleZip,
             }
         )
@@ -127,10 +146,7 @@ def test_fetch_task(api, users, location, es, httpserver: pytest_httpserver.HTTP
         httpserver.expect_request("/some-file.txt").respond_with_data(file_contents)
 
         db.session.refresh(object_version)
-        tasks.fetch_by_reference_file(object_version.version_id)
-
-        # The downloaded file was queued for unpacking
-        unpack_object.delay.assert_called_once_with(object_version.version_id)
+        tasks.dereference_object(record.id, object_version.version_id)
 
         # Check requests
         assert len(httpserver.log) == 1
@@ -145,14 +161,14 @@ def test_fetch_task(api, users, location, es, httpserver: pytest_httpserver.HTTP
         assert TagManager(object_version) == {
             ObjectTagKey.ByReferenceURL: httpserver.url_for("some-file.txt"),
             ObjectTagKey.Packaging: PackagingFormat.SimpleZip,
-            ObjectTagKey.FileState: FileState.Unpacking,
+            ObjectTagKey.FileState: FileState.Pending,
         }
 
 
 def test_fetch_without_url(api, location, es):
     with api.test_request_context():
-        object_version = ObjectVersion.create(
-            bucket=Bucket.create(), key="some-file.txt"
-        )
+        record = SWORDDeposit.create({})
+
+        object_version = ObjectVersion.create(bucket=record.bucket, key="some-file.txt")
         with pytest.raises(ValueError):
-            tasks.fetch_by_reference_file(object_version.version_id)
+            tasks.dereference_object(record.id, object_version.version_id)

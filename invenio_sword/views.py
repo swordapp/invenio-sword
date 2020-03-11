@@ -29,8 +29,6 @@ from werkzeug.utils import cached_property
 from . import serializers
 from .api import SWORDDeposit
 from .metadata import Metadata
-from .packaging import IngestResult
-from .packaging import Packaging
 from .schemas import ByReferenceSchema
 from .typing import BytesReader
 from .typing import SwordEndpointDefinition
@@ -117,7 +115,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             raise sword3common.exceptions.MetadataFormatNotAcceptable from e
 
     @cached_property
-    def packaging_class(self) -> typing.Type[Packaging]:
+    def packaging_name(self) -> str:
         """The Packaging subclass associated with the request.
 
         :raises NotImplemented: if the ``Packaging`` is not supported
@@ -125,10 +123,9 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         packaging = request.headers.get(
             "Packaging", self.endpoint_options["default_packaging_format"]
         )
-        try:
-            return self.endpoint_options["packaging_formats"][packaging]
-        except KeyError as e:
-            raise sword3common.exceptions.PackagingFormatNotAcceptable from e
+        if packaging not in self.endpoint_options["packaging_formats"]:
+            raise sword3common.exceptions.PackagingFormatNotAcceptable
+        return packaging
 
     @cached_property
     def in_progress(self) -> bool:
@@ -153,15 +150,12 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         """Create an empty deposit record"""
         return SWORDDeposit.create({"metadata": {}})
 
-    def update_deposit(
-        self, record: SWORDDeposit, replace: bool = True
-    ) -> typing.Optional[typing.Union[Metadata, IngestResult]]:
+    def update_deposit(self, record: SWORDDeposit, replace: bool = True):
         """Update a deposit according to the request data
 
         :param replace: If ``True``, all previous data on the deposit is removed. If ``False``, the request augments
             data already provided.
         """
-        result: typing.Optional[typing.Union[Metadata, IngestResult]] = None
 
         content_disposition, content_disposition_options = parse_options_header(
             request.headers.get("Content-Disposition", "")
@@ -176,7 +170,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
                     request.json["metadata"], self.metadata_class, replace=replace,
                 )
             else:
-                result = record.set_metadata(
+                record.set_metadata(
                     request.stream,
                     self.metadata_class,
                     request.content_type,
@@ -205,22 +199,18 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         if not (metadata_deposit or by_reference_deposit) and (
             request.content_type or request.content_length
         ):
-            result = self.set_fileset_from_stream(
-                record, request.stream, replace=replace
-            )
+            self.ingest_file(record, request.stream, replace=replace)
         elif replace:
-            self.set_fileset_from_stream(record, None, replace=replace)
+            self.ingest_file(record, None, replace=replace)
 
         self.update_deposit_status(record)
 
         record.commit()
         db.session.commit()
 
-        return result
-
-    def set_fileset_from_stream(
+    def ingest_file(
         self, record: SWORDDeposit, stream: typing.Optional[BytesReader], replace=True
-    ) -> IngestResult:
+    ):
         """
         Sets or adds to a deposit fileset using a bytestream and request headers
 
@@ -231,9 +221,9 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         :param replace: Whether to replace or add to the deposit
         :return: an IngestResult
         """
-        return record.set_fileset_from_stream(
+        return record.ingest_file(
             stream if (request.content_type or request.content_length) else None,
-            packaging_class=self.packaging_class,
+            packaging_name=self.packaging_name,
             content_disposition=request.headers.get("Content-Disposition"),
             content_type=request.content_type,
             replace=replace,
@@ -271,7 +261,7 @@ class ServiceDocumentView(SWORDDepositView):
         if permission_factory:
             verify_record_permission(permission_factory, record)
 
-        self.update_deposit(record)
+        self.update_deposit(record, replace=False)
 
         response = self.make_response(record.get_status_as_jsonld())  # type: Response
         response.status_code = HTTPStatus.CREATED
@@ -385,7 +375,7 @@ class DepositFilesetView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def post(self, pid, record: SWORDDeposit):
-        self.set_fileset_from_stream(
+        self.ingest_file(
             record,
             request.stream
             if (request.content_type or request.content_length)
@@ -399,7 +389,7 @@ class DepositFilesetView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def put(self, pid, record: SWORDDeposit):
-        self.set_fileset_from_stream(
+        self.ingest_file(
             record,
             request.stream
             if (request.content_type or request.content_length)
@@ -412,7 +402,7 @@ class DepositFilesetView(SWORDDepositView):
     @pass_record
     @need_record_permission("update_permission_factory")
     def delete(self, pid, record: SWORDDeposit):
-        self.set_fileset_from_stream(
+        self.ingest_file(
             record, None,
         )
         record.commit()

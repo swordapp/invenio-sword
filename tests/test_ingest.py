@@ -5,6 +5,7 @@ from http import HTTPStatus
 
 import pytest
 from flask_security import url_for_security
+from invenio_files_rest.models import ObjectVersion
 from sword3common.exceptions import ContentMalformed
 from sword3common.exceptions import ContentTypeNotAcceptable
 
@@ -51,6 +52,7 @@ ingest_test_parameters = [
                 ],
                 "contentType": "image/svg+xml",
                 "status": "http://purl.org/net/sword/3.0/filestate/ingested",
+                "packaging": "http://purl.org/net/sword/3.0/package/Binary",
             }
         },
     ),
@@ -95,6 +97,7 @@ def test_ingest(
     users,
     location,
     es,
+    task_delay,
     fixtures_path,
     filename,
     packaging,
@@ -119,6 +122,10 @@ def test_ingest(
             )
         assert response.status_code == HTTPStatus.CREATED
 
+        assert task_delay.call_count == 1
+        task_self = task_delay.call_args[0][0]
+        task_self.apply()
+
         response = client.get(response.headers["Location"])
 
         metadata_file_count = 0
@@ -142,7 +149,7 @@ def test_ingest(
 
             expected_link["@id"] = response.json["@id"] + "/file/" + key
 
-            assert expected_link == link
+            assert link == expected_link
 
         assert len(response.json["links"]) == len(expected_links) + metadata_file_count
 
@@ -156,6 +163,7 @@ def test_create_with_metadata_and_then_ingest(
     location,
     es,
     fixtures_path,
+    task_delay,
     filename,
     packaging,
     content_type,
@@ -178,6 +186,7 @@ def test_create_with_metadata_and_then_ingest(
             },
         )
         assert response.status_code == HTTPStatus.CREATED
+        assert task_delay.call_count == 0
 
         with open(os.path.join(fixtures_path, filename), "rb") as f:
             client.post(
@@ -189,6 +198,10 @@ def test_create_with_metadata_and_then_ingest(
                     "Content-Disposition": "attachment; filename={}".format(filename),
                 },
             )
+
+        assert task_delay.call_count == 1
+        task_self = task_delay.call_args[0][0]
+        task_self.apply()
 
         response = client.get(response.headers["Location"])
 
@@ -215,7 +228,7 @@ def test_create_with_metadata_and_then_ingest(
 
             expected_link["@id"] = response.json["@id"] + "/file/" + key
 
-            assert expected_link == link
+            assert link == expected_link
 
         assert len(response.json["links"]) == len(expected_links) + metadata_link_count
 
@@ -240,13 +253,11 @@ def test_bad_files(
     fixtures_path,
 ):
     with api.app_context():
-        packaging = packaging_class()
         record = SWORDDeposit.create({})
+        packaging = packaging_class(record)
+        with open(os.path.join(fixtures_path, filename), "rb") as stream:
+            object_version = ObjectVersion.create(
+                record.bucket, key=filename, stream=stream, mimetype=content_type
+            )
         with pytest.raises(exception_class):
-            with open(os.path.join(fixtures_path, filename), "rb") as stream:
-                packaging.ingest(
-                    record=record,
-                    stream=stream,
-                    filename=filename,
-                    content_type=content_type,
-                )
+            packaging.unpack(object_version)
