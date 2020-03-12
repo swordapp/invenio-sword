@@ -92,10 +92,7 @@ setup(
     include_package_data=True,
     platforms="any",
     entry_points={
-        "invenio_base.apps": [
-            "invenio_sword_wellknown = invenio_sword:InvenioSwordWellKnown",
-            "invenio_sword = invenio_sword:InvenioSword",
-        ],
+        "invenio_base.apps": ["invenio_sword = invenio_sword:InvenioSword",],
         "invenio_base.api_apps": ["invenio_sword = invenio_sword:InvenioSword",],
         "invenio_sword.packaging": [
             "http://purl.org/net/sword/3.0/package/Binary = invenio_sword.packaging:BinaryPackaging",

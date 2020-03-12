@@ -10,7 +10,6 @@ import sword3common.constants
 import sword3common.exceptions
 from flask import Blueprint
 from flask import current_app
-from flask import redirect
 from flask import request
 from flask import Response
 from invenio_db import db
@@ -517,21 +516,5 @@ def create_blueprint(endpoints: typing.Dict[str, SwordEndpointDefinition]) -> Bl
                 },
             ),
         )
-
-    return blueprint
-
-
-def create_wellknown_blueprint():
-    """Provides /.well-known/sword-v3"""
-    blueprint = Blueprint(
-        "invenio_sword_wellknown", __name__, url_prefix="/.well-known"
-    )
-
-    def wellknown_response():
-        return redirect("/api/sword/service-document")
-
-    blueprint.add_url_rule(
-        "sword-v3", endpoint="well-known", view_func=wellknown_response,
-    )
 
     return blueprint
