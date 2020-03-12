@@ -1,3 +1,4 @@
+import io
 import json
 import unittest.mock
 import urllib.error
@@ -12,6 +13,7 @@ from invenio_files_rest.models import ObjectVersion
 from invenio_records.models import RecordMetadata
 from sword3common.constants import JSON_LD_CONTEXT
 from sword3common.constants import PackagingFormat
+from sword3common.exceptions import ContentTypeNotAcceptable
 
 from invenio_sword import tasks
 from invenio_sword.api import SWORDDeposit
@@ -175,6 +177,32 @@ def test_dereference_without_url(api, location, es):
             tasks.dereference_object(record.id, object_version.version_id)
 
 
+def test_dereference_already_dereferenced(
+    api, location, es, httpserver: pytest_httpserver.HTTPServer
+):
+    with api.test_request_context():
+        record = SWORDDeposit.create({})
+
+        object_version = ObjectVersion.create(
+            bucket=record.bucket, key="some-file.txt", stream=io.BytesIO(b"data")
+        )
+        TagManager(object_version).update(
+            {
+                ObjectTagKey.ByReferenceURL: httpserver.url_for("some-file.txt"),
+                ObjectTagKey.Packaging: PackagingFormat.SimpleZip,
+            }
+        )
+
+        httpserver.expect_request("/some-file.txt").respond_with_data(b"data")
+
+        db.session.refresh(object_version)
+
+        result = tasks.dereference_object(record.id, object_version.version_id)
+        assert result == ["some-file.txt"]
+
+        assert httpserver.log == []
+
+
 def test_error_dereferencing(
     api, users, location, es, httpserver: pytest_httpserver.HTTPServer
 ):
@@ -198,6 +226,27 @@ def test_error_dereferencing(
 
         with pytest.raises(urllib.error.HTTPError):
             tasks.dereference_object(record.id, object_version.version_id)
+
+        db.session.refresh(object_version)
+
+        tags = TagManager(object_version)
+        assert tags.get(ObjectTagKey.FileState) == FileState.Error
+
+
+def test_error_unpacking(api, users, location, es):
+    with api.test_request_context():
+        record = SWORDDeposit.create({})
+        object_version = ObjectVersion.create(
+            bucket=record.bucket, key="some-file.txt", mimetype="text/plain"
+        )
+        TagManager(object_version).update(
+            {ObjectTagKey.Packaging: PackagingFormat.SimpleZip,}
+        )
+
+        db.session.refresh(object_version)
+
+        with pytest.raises(ContentTypeNotAcceptable):
+            tasks.unpack_object(record.id, object_version.version_id)
 
         db.session.refresh(object_version)
 
