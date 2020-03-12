@@ -17,7 +17,7 @@ if TYPE_CHECKING:  # pragma: nocover
     from invenio_deposit.search import DepositSearch
     from invenio_sword.api import SWORDDeposit
 
-if sys.version_info >= (3, 8):
+if sys.version_info >= (3, 8):  # pragma: nocover
     from typing import Protocol
     from typing import runtime_checkable
     from typing import TypedDict
