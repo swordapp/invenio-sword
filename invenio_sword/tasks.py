@@ -112,7 +112,7 @@ def delete_old_objects(
             ObjectVersion.delete(object_version.bucket, object_version.key)
         else:
             # Delete any tags that say that an ObjectVersion is a yet-to-be-dereferenced file
-            ObjectVersionTag.query(
+            ObjectVersionTag.query.filter(
                 ObjectVersionTag.version_id == object_version.version_id,
                 ObjectVersionTag.key == ObjectTagKey.ByReferenceNotDeleted.value,
                 ObjectVersionTag.value == "true",
