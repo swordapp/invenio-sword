@@ -261,3 +261,26 @@ def test_bad_files(
             )
         with pytest.raises(exception_class):
             packaging.unpack(object_version)
+
+
+def test_unknown_packaging_format(api, location, users, task_delay):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
+
+        response = client.post(
+            "/sword/service-document",
+            data=io.BytesIO(b"data"),
+            headers={
+                "Packaging": "http://something.invalid/",
+                "Content-Type": "text/plain",
+                "Content-Disposition": "attachment; filename=data.txt",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+        assert response.json["@type"] == "PackagingFormatNotAcceptable"
+
+        assert not task_delay.called

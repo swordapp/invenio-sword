@@ -1,5 +1,6 @@
 import json
 import unittest.mock
+import urllib.error
 from http import HTTPStatus
 
 import pytest
@@ -126,8 +127,8 @@ def test_by_reference_deposit(
         assert httpserver.log == []
 
 
-def test_fetch_task(
-    api, users, location, es, httpserver: pytest_httpserver.HTTPServer, task_delay
+def test_dereference_task(
+    api, users, location, es, httpserver: pytest_httpserver.HTTPServer
 ):
     file_contents = "File contents.\n"
 
@@ -172,3 +173,33 @@ def test_dereference_without_url(api, location, es):
         object_version = ObjectVersion.create(bucket=record.bucket, key="some-file.txt")
         with pytest.raises(ValueError):
             tasks.dereference_object(record.id, object_version.version_id)
+
+
+def test_error_dereferencing(
+    api, users, location, es, httpserver: pytest_httpserver.HTTPServer
+):
+    with api.test_request_context():
+        record = SWORDDeposit.create({})
+        object_version = ObjectVersion.create(bucket=record.bucket, key="some-file.txt")
+        TagManager(object_version).update(
+            {
+                ObjectTagKey.ByReferenceURL: httpserver.url_for("some-file.txt"),
+                # This one should get removed after dereferencing
+                ObjectTagKey.ByReferenceNotDeleted: "true",
+                ObjectTagKey.Packaging: PackagingFormat.SimpleZip,
+            }
+        )
+
+        httpserver.expect_request("/some-file.txt").respond_with_data(
+            b"", status=HTTPStatus.GONE
+        )
+
+        db.session.refresh(object_version)
+
+        with pytest.raises(urllib.error.HTTPError):
+            tasks.dereference_object(record.id, object_version.version_id)
+
+        db.session.refresh(object_version)
+
+        tags = TagManager(object_version)
+        assert tags.get(ObjectTagKey.FileState) == FileState.Error
