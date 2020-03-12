@@ -11,12 +11,13 @@ from typing import Union
 
 
 if TYPE_CHECKING:  # pragma: nocover
+    from invenio_files_rest.models import ObjectVersion
     from invenio_sword.metadata import Metadata
     from invenio_sword.packaging import Packaging
     from invenio_deposit.search import DepositSearch
     from invenio_sword.api import SWORDDeposit
 
-if sys.version_info >= (3, 8):
+if sys.version_info >= (3, 8):  # pragma: nocover
     from typing import Protocol
     from typing import runtime_checkable
     from typing import TypedDict
@@ -56,3 +57,5 @@ class SwordEndpointDefinition(TypedDict):
     file_route: str
 
     default_media_type: str
+
+    dereference_policy: Callable[[ObjectVersion, Dict], bool]

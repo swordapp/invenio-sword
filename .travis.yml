@@ -57,7 +57,7 @@ env:
   matrix:
 #    - EXTRAS=all,elasticsearch5 ES_URL=$ES5_DOWNLOAD_URL
 #    - EXTRAS=all,elasticsearch6 ES_URL=$ES6_DOWNLOAD_URL
-    - EXTRAS=all,elasticsearch7 ES_URL=$ES7_DOWNLOAD_URL
+    - EXTRAS=all,elasticsearch7,test ES_URL=$ES7_DOWNLOAD_URL
 
 python:
 #  - "3.7"

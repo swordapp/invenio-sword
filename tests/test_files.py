@@ -3,6 +3,7 @@ from http import HTTPStatus
 
 from flask_security import url_for_security
 from invenio_db import db
+from invenio_files_rest.models import ObjectVersion
 
 from invenio_sword.api import SWORDDeposit
 from invenio_sword.packaging import SWORDBagItPackaging
@@ -11,9 +12,13 @@ from invenio_sword.packaging import SWORDBagItPackaging
 def create_bagit_record(fixtures_path):
     with open(os.path.join(fixtures_path, "bagit.zip"), "rb") as f:
         record = SWORDDeposit.create({})
-        SWORDBagItPackaging().ingest(
-            record=record, stream=f, content_type="application/zip",
+        packaging = SWORDBagItPackaging(record)
+        object_version = ObjectVersion.create(
+            bucket=record.bucket,
+            key=packaging.get_original_deposit_filename(),
+            stream=f,
         )
+        packaging.unpack(object_version)
         record.commit()
         db.session.commit()
     return record

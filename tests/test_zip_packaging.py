@@ -23,38 +23,34 @@
 # as an Intergovernmental Organization or submit itself to any jurisdiction.
 """Test the BagIt implementation."""
 import os
-from http import HTTPStatus
 
-from flask import url_for
-from flask_security import url_for_security
-from invenio_files_rest.models import Bucket
 from invenio_files_rest.models import ObjectVersion
+
+from invenio_sword.api import SWORDDeposit
+from invenio_sword.packaging import SimpleZipPackaging
 
 fixtures_path = os.path.join(os.path.dirname(__file__), "fixtures")
 
 
-def test_post_service_document_with_simple_zip(api, users, location):
-    with api.test_request_context(), api.test_client() as client:
-        client.post(
-            url_for_security("login"),
-            data={"email": users[0]["email"], "password": "tester"},
-        )
-
-        with open(os.path.join(fixtures_path, "simple.zip"), "rb") as f:
-            response = client.post(
-                url_for("invenio_sword.depid_service_document"),
-                input_stream=f,
-                headers={
-                    "Content-Type": "application/zip",
-                    "Packaging": "http://purl.org/net/sword/3.0/package/SimpleZip",
-                },
+def test_simple_zip(api, users, location):
+    with api.test_request_context():
+        record = SWORDDeposit.create({})
+        with open(os.path.join(fixtures_path, "simple.zip"), "rb") as stream:
+            object_version = ObjectVersion.create(
+                bucket=record.bucket,
+                key="deposit.zip",
+                stream=stream,
+                mimetype="application/zip",
             )
 
-        assert response.status_code == HTTPStatus.CREATED
+        SimpleZipPackaging(record).unpack(object_version)
 
-        bucket = Bucket.query.one()
-        obj_1 = ObjectVersion.query.filter_by(bucket=bucket, key="example.svg").one()
-        obj_2 = ObjectVersion.query.filter_by(bucket=bucket, key="hello.txt").one()
+        obj_1 = ObjectVersion.query.filter_by(
+            bucket=record.bucket, key="example.svg"
+        ).one()
+        obj_2 = ObjectVersion.query.filter_by(
+            bucket=record.bucket, key="hello.txt"
+        ).one()
 
         assert obj_1.mimetype == "image/svg+xml"
         assert obj_2.mimetype == "text/plain"

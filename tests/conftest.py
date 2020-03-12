@@ -31,9 +31,12 @@ import json
 import os
 import shutil
 import tempfile
+import unittest.mock
 from time import sleep
 
 import pytest
+from celery.canvas import Signature
+from celery.task import Task
 from elasticsearch.exceptions import RequestError
 from flask import Flask
 from flask_babelex import Babel
@@ -129,7 +132,7 @@ def base_app(request, test_metadata_format):
 
     def init_app(app_):
         app_.config.update(
-            CELERY_ALWAYS_EAGER=True,
+            CELERY_ALWAYS_EAGER=False,
             CELERY_CACHE_BACKEND="memory",
             CELERY_EAGER_PROPAGATES_EXCEPTIONS=True,
             CELERY_RESULT_BACKEND="cache",
@@ -448,6 +451,19 @@ def metadata_document():
             }
         ).encode()
     )
+
+
+@pytest.yield_fixture()
+def task_delay():
+    mock_obj = unittest.mock.Mock()
+
+    def delay(self):
+        mock_obj(self)
+
+    with unittest.mock.patch.object(
+        Signature, "delay", delay
+    ), unittest.mock.patch.object(Task, "delay", delay):
+        yield mock_obj
 
 
 @pytest.fixture()

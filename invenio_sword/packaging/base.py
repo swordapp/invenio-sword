@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import mimetypes
 import typing
+import uuid
+from typing import Collection
+from typing import Union
 
+from flask import current_app
 from invenio_files_rest.models import ObjectVersion
-
-from ..typing import BytesReader
 
 if typing.TYPE_CHECKING:  # pragma: nocover
     from ..api import SWORDDeposit
@@ -13,27 +16,31 @@ if typing.TYPE_CHECKING:  # pragma: nocover
 class Packaging:
     packaging_name: str
 
-    def ingest(
-        self,
-        *,
-        record: SWORDDeposit,
-        stream: BytesReader,
-        filename: str = None,
-        content_type: str
-    ) -> IngestResult:
+    def __init__(self, record: SWORDDeposit):
+        self.record = record
+
+    def get_original_deposit_filename(
+        self, filename: str = None, media_type: str = None
+    ) -> str:
+        if filename:
+            return filename
+        elif media_type and mimetypes.guess_extension(media_type):
+            return "{}{}".format(uuid.uuid4(), mimetypes.guess_extension(media_type))
+        else:
+            return "{}.bin".format(uuid.uuid4())
+
+    @classmethod
+    def for_record_and_name(cls, record: SWORDDeposit, packaging_name: str):
+        packaging_class = current_app.config["SWORD_ENDPOINTS"][record.pid.pid_type][
+            "packaging_formats"
+        ][packaging_name]
+        return packaging_class(record)
+
+    def shortcut_unpack(
+        self, object_version: ObjectVersion
+    ) -> Union[NotImplemented, Collection[str]]:
+        """Override this to shortcut task-based unpacking"""
+        return NotImplemented
+
+    def unpack(self, object_version: ObjectVersion) -> Collection[str]:
         raise NotImplementedError  # pragma: nocover
-
-
-class IngestResult:
-    def __init__(
-        self,
-        original_deposit: typing.Optional[ObjectVersion],
-        unpackaged_objects: typing.Iterable[ObjectVersion] = None,
-    ):
-        self.original_deposit = original_deposit
-        self.ingested_objects = list(unpackaged_objects or ())
-        if (
-            self.original_deposit is not None
-            and self.original_deposit not in self.ingested_objects
-        ):
-            self.ingested_objects.append(self.original_deposit)

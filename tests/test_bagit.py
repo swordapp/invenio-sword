@@ -31,11 +31,18 @@ from flask_security import url_for_security
 from invenio_files_rest.models import Bucket
 from invenio_files_rest.models import ObjectVersion
 from invenio_records.models import RecordMetadata
+from sword3common.constants import PackagingFormat
 from sword3common.exceptions import ContentMalformed
+from sword3common.exceptions import ContentTypeNotAcceptable
 from sword3common.exceptions import ValidationFailed
 
+from invenio_sword.api import SWORDDeposit
+from invenio_sword.packaging import Packaging
 
-def test_post_service_document_with_bagit_bag(api, users, location, fixtures_path):
+
+def test_post_service_document_with_bagit_bag(
+    api, users, location, fixtures_path, task_delay
+):
     with api.test_request_context(), api.test_client() as client:
         client.post(
             url_for_security("login"),
@@ -53,6 +60,14 @@ def test_post_service_document_with_bagit_bag(api, users, location, fixtures_pat
             )
 
         assert response.status_code == HTTPStatus.CREATED
+
+        # Check that we attempted to queue a task
+        assert task_delay.call_count == 1
+        task_self = task_delay.call_args[0][0]
+
+        task_self.apply()
+
+        # db.session.refresh(record)
 
         bucket = Bucket.query.one()
         obj_1 = ObjectVersion.query.filter_by(bucket=bucket, key="example.svg").one()
@@ -99,46 +114,34 @@ def test_post_service_document_with_bagit_bag(api, users, location, fixtures_pat
         ("bagit-with-fetch.zip", ValidationFailed),
     ],
 )
-def test_post_service_document_with_broken_bag(
-    api, users, location, filename, error_class, fixtures_path
+def test_unpack_document_with_broken_bag(
+    api, location, filename, error_class, fixtures_path
 ):
-    with api.test_request_context(), api.test_client() as client:
-        client.post(
-            url_for_security("login"),
-            data={"email": users[0]["email"], "password": "tester"},
-        )
-
-        with open(os.path.join(fixtures_path, filename), "rb") as f:
-            response = client.post(
-                url_for("invenio_sword.depid_service_document"),
-                input_stream=f,
-                headers={
-                    "Content-Type": "application/zip",
-                    "Packaging": "http://purl.org/net/sword/3.0/package/SWORDBagIt",
-                },
+    with api.test_request_context():
+        record = SWORDDeposit.create({})
+        with open(os.path.join(fixtures_path, filename), "rb") as stream:
+            object_version = ObjectVersion.create(
+                bucket=record.bucket, key=filename, stream=stream
             )
 
-        assert response.status_code == error_class.status_code
-        assert response.json["@type"] == error_class.name
+        packaging = Packaging.for_record_and_name(record, PackagingFormat.SwordBagIt)
+        with pytest.raises(error_class):
+            packaging.unpack(object_version)
 
 
 def test_post_service_document_with_incorrect_content_type(
     api, users, location, fixtures_path
 ):
-    with api.test_request_context(), api.test_client() as client:
-        client.post(
-            url_for_security("login"),
-            data={"email": users[0]["email"], "password": "tester"},
-        )
-
-        with open(os.path.join(fixtures_path, "bagit.zip"), "rb") as f:
-            response = client.post(
-                url_for("invenio_sword.depid_service_document"),
-                input_stream=f,
-                headers={
-                    "Content-Type": "application/tar",
-                    "Packaging": "http://purl.org/net/sword/3.0/package/SWORDBagIt",
-                },
+    with api.test_request_context():
+        record = SWORDDeposit.create({})
+        with open(os.path.join(fixtures_path, "bagit.zip"), "rb") as stream:
+            object_version = ObjectVersion.create(
+                bucket=record.bucket,
+                key="bagit.zip",
+                stream=stream,
+                mimetype="application/tar",
             )
 
-        assert response.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE
+        packaging = Packaging.for_record_and_name(record, PackagingFormat.SwordBagIt)
+        with pytest.raises(ContentTypeNotAcceptable):
+            packaging.unpack(object_version)

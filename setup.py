@@ -44,12 +44,14 @@ install_requires = [
     "Flask-BabelEx>=0.9.3",
     "Flask-Login>=0.3.2",
     "Flask>=0.11.1",
+    "marshmallow",
     "rdflib",
     "rdflib-jsonld",
     "SQLAlchemy-Continuum>=1.3.6",
     "SQLAlchemy-Utils[encrypted]>=0.33",
     "dictdiffer>=0.5.0.post1",
     "invenio-assets>=1.0.0",
+    "invenio-celery",
     "invenio-db[versioning]>=1.0.1",
     "invenio-deposit>=1.0.0a1",
     "invenio-files-rest>=1.0.1",
@@ -92,6 +94,7 @@ setup(
     entry_points={
         "invenio_base.apps": [
             "invenio_sword_wellknown = invenio_sword:InvenioSwordWellKnown",
+            "invenio_sword = invenio_sword:InvenioSword",
         ],
         "invenio_base.api_apps": ["invenio_sword = invenio_sword:InvenioSword",],
         "invenio_sword.packaging": [
@@ -102,9 +105,11 @@ setup(
         "invenio_sword.metadata": [
             "http://purl.org/net/sword/3.0/types/Metadata = invenio_sword.metadata:SWORDMetadata",
         ],
+        "invenio_celery.tasks": ["invenio_sword = invenio_sword.tasks",],
     },
     install_requires=install_requires,
     setup_requires=setup_requires,
+    extras_require={"test": ["pytest", "pytest-httpserver",]},
     classifiers=[
         "Environment :: Web Environment",
         "Intended Audience :: Developers",

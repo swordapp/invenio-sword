@@ -32,7 +32,7 @@ def test_get_fileset_url(api, users, location, es):
         assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
 
 
-def test_put_fileset_url(api, users, location, es):
+def test_put_fileset_url(api, users, location, es, task_delay):
     with api.test_request_context(), api.test_client() as client:
         client.post(
             url_for_security("login"),
@@ -62,6 +62,10 @@ def test_put_fileset_url(api, users, location, es):
             },
         )
         assert response.status_code == HTTPStatus.NO_CONTENT
+
+        assert task_delay.call_count == 1
+        task_self = task_delay.call_args[0][0]
+        task_self.apply()
 
         # Check original ObjectVersion is marked deleted
         original_object_versions = list(
@@ -123,7 +127,9 @@ def test_post_fileset_url(api, users, location, es):
         assert new_object_version.is_head
 
 
-def test_delete_fileset(api, users, location, es, fixtures_path, test_metadata_format):
+def test_delete_fileset(
+    api, users, location, es, fixtures_path, test_metadata_format, task_delay
+):
     with api.test_request_context(), api.test_client() as client:
         client.post(
             url_for_security("login"),
@@ -168,6 +174,10 @@ def test_delete_fileset(api, users, location, es, fixtures_path, test_metadata_f
                 },
             )
             assert response.status_code == HTTPStatus.OK
+
+        assert task_delay.call_count == 1
+        task_self = task_delay.call_args[0][0]
+        task_self.apply()
 
         # One test metadata, one old SWORD metadata, one new SWORD metadata, one original deposit, and two files
         assert ObjectVersion.query.count() == 6
