@@ -165,7 +165,7 @@ def test_fetch_task(
         }
 
 
-def test_fetch_without_url(api, location, es):
+def test_dereference_without_url(api, location, es):
     with api.test_request_context():
         record = SWORDDeposit.create({})
 
