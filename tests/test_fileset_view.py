@@ -85,7 +85,7 @@ def test_put_fileset_url(api, users, location, es, task_delay):
         assert new_object_version.is_head
 
 
-def test_post_fileset_url(api, users, location, es):
+def test_post_fileset_url(api, users, location, es, task_delay):
     with api.test_request_context(), api.test_client() as client:
         client.post(
             url_for_security("login"),
