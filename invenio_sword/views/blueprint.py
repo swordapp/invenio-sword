@@ -9,11 +9,16 @@ from invenio_deposit.search import DepositSearch
 from invenio_deposit.views.rest import create_error_handlers
 from invenio_records_rest.utils import obj_or_import_string
 
-from . import DepositFilesetView
-from . import DepositFileView
-from . import DepositMetadataView
-from . import DepositStatusView
-from . import ServiceDocumentView
+from . import (
+    DepositFilesetView,
+    DepositFileView,
+    DepositMetadataView,
+    DepositStatusView,
+    ServiceDocumentView,
+    StagingURLView,
+    TemporaryURLView,
+)
+
 from .. import serializers
 from ..api import SWORDDeposit
 from ..typing import SwordEndpointDefinition
@@ -122,6 +127,26 @@ def create_blueprint(endpoints: typing.Dict[str, SwordEndpointDefinition]) -> Bl
                         status=HTTPStatus.NO_CONTENT
                     )
                 },
+            ),
+        )
+
+        blueprint.add_url_rule(
+            options["staging_url_route"],
+            endpoint=StagingURLView.view_name.format(endpoint),
+            view_func=StagingURLView.as_view(
+                "staging-url",
+                serializers={"application/ld+json": serializers.jsonld_serializer,},
+                ctx=ctx,
+            ),
+        )
+
+        blueprint.add_url_rule(
+            options["temporary_url_route"],
+            endpoint=TemporaryURLView.view_name.format(endpoint),
+            view_func=TemporaryURLView.as_view(
+                "temporary-url",
+                serializers={"application/ld+json": serializers.jsonld_serializer,},
+                ctx=ctx,
             ),
         )
 

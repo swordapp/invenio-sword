@@ -38,6 +38,8 @@ SWORD_ENDPOINTS: Dict[str, SwordEndpointDefinition] = {
         "metadata_route": "/sword/deposit/<{}:pid_value>/metadata".format(_PID),
         "fileset_route": "/sword/deposit/<{}:pid_value>/fileset".format(_PID),
         "file_route": "/sword/deposit/<{}:pid_value>/file/<path:key>".format(_PID),
+        "staging_url_route": "/sword/staging",
+        "temporary_url_route": "/sword/temporary/<temporary_id>",
         # Search
         "search_class": "invenio_deposit.search:DepositSearch",
         "indexer_class": None,
