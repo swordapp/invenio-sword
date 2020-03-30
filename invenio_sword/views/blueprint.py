@@ -1,10 +1,15 @@
+import datetime
+import json
 import typing
 from copy import deepcopy
 from functools import partial
 from http import HTTPStatus
 
+import marshmallow.exceptions
 from flask import Blueprint
 from flask import Response
+
+import sword3common
 from invenio_deposit.search import DepositSearch
 from invenio_deposit.views.rest import create_error_handlers
 from invenio_records_rest.utils import obj_or_import_string
@@ -148,6 +153,40 @@ def create_blueprint(endpoints: typing.Dict[str, SwordEndpointDefinition]) -> Bl
                 serializers={"application/ld+json": serializers.jsonld_serializer,},
                 ctx=ctx,
             ),
+        )
+
+    @blueprint.errorhandler(sword3common.exceptions.SwordException)
+    def sword_exception_handler(exc):
+        return Response(
+            json.dumps(
+                {
+                    "@context": sword3common.constants.JSON_LD_CONTEXT,
+                    "@type": exc.name,
+                    "error": exc.reason,
+                    "log": exc.message,
+                    "timestamp": exc.timestamp.isoformat(),
+                }
+            ),
+            content_type="application/ld+json",
+            status=exc.status_code,
+        )
+
+    @blueprint.errorhandler(marshmallow.exceptions.ValidationError)
+    def marshmallow_exception_handler(exc):
+        return Response(
+            json.dumps(
+                {
+                    "@context": sword3common.constants.JSON_LD_CONTEXT,
+                    "@type": sword3common.exceptions.ValidationFailed.name,
+                    "error": sword3common.exceptions.ValidationFailed.reason,
+                    "timestamp": datetime.datetime.now(
+                        tz=datetime.timezone.utc
+                    ).isoformat(),
+                    "errors": exc.messages,
+                }
+            ),
+            content_type="application/ld+json",
+            status=sword3common.exceptions.ValidationFailed.status_code,
         )
 
     return blueprint

@@ -1,13 +1,9 @@
-import datetime
-import json
 import typing
 
-import marshmallow
 import sword3common.constants
 import sword3common.exceptions
 from flask import current_app
 from flask import request
-from flask import Response
 from invenio_db import db
 from invenio_rest import ContentNegotiatedMethodView
 from werkzeug.exceptions import Conflict
@@ -44,40 +40,6 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         )
         for key, value in ctx.items():
             setattr(self, key, value)
-
-    def dispatch_request(self, *args, **kwargs):
-        try:
-            return super().dispatch_request(*args, **kwargs)
-        except sword3common.exceptions.SwordException as e:
-            return Response(
-                json.dumps(
-                    {
-                        "@context": sword3common.constants.JSON_LD_CONTEXT,
-                        "@type": e.name,
-                        "error": e.reason,
-                        "log": e.message,
-                        "timestamp": e.timestamp.isoformat(),
-                    }
-                ),
-                content_type="application/ld+json",
-                status=e.status_code,
-            )
-        except marshmallow.exceptions.ValidationError as e:
-            return Response(
-                json.dumps(
-                    {
-                        "@context": sword3common.constants.JSON_LD_CONTEXT,
-                        "@type": sword3common.exceptions.ValidationFailed.name,
-                        "error": sword3common.exceptions.ValidationFailed.reason,
-                        "timestamp": datetime.datetime.now(
-                            tz=datetime.timezone.utc
-                        ).isoformat(),
-                        "errors": e.messages,
-                    }
-                ),
-                content_type="application/ld+json",
-                status=sword3common.exceptions.ValidationFailed.status_code,
-            )
 
     @cached_property
     def endpoint_options(self) -> typing.Dict[str, typing.Any]:
