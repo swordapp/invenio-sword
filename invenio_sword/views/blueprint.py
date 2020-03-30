@@ -31,7 +31,7 @@ from ..typing import SwordEndpointDefinition
 __all__ = ["create_blueprint"]
 
 
-def create_blueprint(endpoints: typing.Dict[str, SwordEndpointDefinition]) -> Blueprint:
+def create_blueprint(config) -> Blueprint:
     """
     Create an Invenio-SWORD blueprint
 
@@ -43,6 +43,9 @@ def create_blueprint(endpoints: typing.Dict[str, SwordEndpointDefinition]) -> Bl
     :param endpoints: List of endpoints configuration.
     :returns: The configured blueprint.
     """
+
+    endpoints: typing.Dict[str, SwordEndpointDefinition] = config["SWORD_ENDPOINTS"]
+
     blueprint = Blueprint("invenio_sword", __name__, url_prefix="",)
     create_error_handlers(blueprint)
 
@@ -135,25 +138,25 @@ def create_blueprint(endpoints: typing.Dict[str, SwordEndpointDefinition]) -> Bl
             ),
         )
 
-        blueprint.add_url_rule(
-            options["staging_url_route"],
-            endpoint=StagingURLView.view_name.format(endpoint),
-            view_func=StagingURLView.as_view(
-                "staging-url",
-                serializers={"application/ld+json": serializers.jsonld_serializer,},
-                ctx=ctx,
-            ),
-        )
+    blueprint.add_url_rule(
+        config["SWORD_STAGING_URL_ROUTE"],
+        endpoint=StagingURLView.view_name,
+        view_func=StagingURLView.as_view(
+            "staging-url",
+            serializers={"application/ld+json": serializers.jsonld_serializer,},
+            ctx=config["SWORD_SEGMENTED_UPLOAD_CONTEXT"],
+        ),
+    )
 
-        blueprint.add_url_rule(
-            options["temporary_url_route"],
-            endpoint=TemporaryURLView.view_name.format(endpoint),
-            view_func=TemporaryURLView.as_view(
-                "temporary-url",
-                serializers={"application/ld+json": serializers.jsonld_serializer,},
-                ctx=ctx,
-            ),
-        )
+    blueprint.add_url_rule(
+        config["SWORD_TEMPORARY_URL_ROUTE"],
+        endpoint=TemporaryURLView.view_name,
+        view_func=TemporaryURLView.as_view(
+            "temporary-url",
+            serializers={"application/ld+json": serializers.jsonld_serializer,},
+            ctx=config["SWORD_SEGMENTED_UPLOAD_CONTEXT"],
+        ),
+    )
 
     @blueprint.errorhandler(sword3common.exceptions.SwordException)
     def sword_exception_handler(exc):

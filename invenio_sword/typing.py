@@ -55,8 +55,6 @@ class SwordEndpointDefinition(TypedDict):
     metadata_route: str
     fileset_route: str
     file_route: str
-    staging_url_route: str
-    temporary_url_route: str
 
     default_media_type: str
 

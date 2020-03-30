@@ -9,10 +9,9 @@ class InvenioSword(object):
             self.init_app(app)
 
     def init_config(self, app):
-
         for k in dir(config):
             if k.startswith("SWORD_"):
                 app.config.setdefault(k, getattr(config, k))
 
     def init_app(self, app):
-        app.register_blueprint(views.create_blueprint(app.config["SWORD_ENDPOINTS"]))
+        app.register_blueprint(views.create_blueprint(app.config))
