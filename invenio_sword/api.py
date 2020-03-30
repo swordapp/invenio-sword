@@ -14,7 +14,7 @@ from invenio_deposit.api import has_status
 from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
 from invenio_pidstore.resolver import Resolver
-from invenio_records_files.api import FileObject
+from invenio_records_files.api import FileObject, Record
 from invenio_records_files.api import FilesIterator
 from sqlalchemy import true
 from sword3common.constants import DepositState
@@ -402,6 +402,10 @@ class SWORDDeposit(Deposit):
         tags[ObjectTagKey.FileState] = FileState.Unpacking
 
         return tasks.unpack_object.s(str(self.id), str(object_version.version_id))
+
+
+class SegmentedUploadRecord(Record):
+    pass
 
 
 pid_resolver = Resolver(
