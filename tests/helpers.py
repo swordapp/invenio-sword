@@ -28,6 +28,7 @@ from __future__ import print_function
 import binascii
 from copy import deepcopy
 
+from flask_security import url_for_security
 from six import BytesIO
 
 
@@ -78,3 +79,9 @@ def fill_oauth2_headers(json_headers, token):
     headers = deepcopy(json_headers)
     headers.append(("Authorization", "Bearer {0}".format(token.access_token)))
     return headers
+
+
+def login(client, email="info@inveniosoftware.org", password="tester", **kwargs):
+    client.post(
+        url_for_security("login"), data={"email": email, "password": password},
+    )

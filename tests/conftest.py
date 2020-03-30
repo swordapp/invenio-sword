@@ -158,6 +158,7 @@ def base_app(request, test_metadata_format):
             FILES_REST_PERMISSION_FACTORY=lambda *a, **kw: type(
                 "Allow", (object,), {"can": lambda self: True}
             )(),
+            FILES_REST_MULTIPART_CHUNKSIZE_MIN=10,
         )
         Babel(app_)
         FlaskCeleryExt(app_)

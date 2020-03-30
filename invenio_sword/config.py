@@ -50,3 +50,18 @@ SWORD_ENDPOINTS: Dict[str, SwordEndpointDefinition] = {
     }
     for name, options in DEPOSIT_REST_ENDPOINTS.items()
 }
+
+
+_SEGMENTED_UPLOAD_PID = (
+    'pid(stagingid,record_class="invenio_sword.api:SegmentedUploadRecord")'
+)
+
+SWORD_STAGING_PID_TYPE = "stagingid"
+SWORD_STAGING_URL_ROUTE = "/sword/staging"
+SWORD_TEMPORARY_URL_ROUTE = "/sword/staging/<uuid:temporary_id>"
+SWORD_SEGMENTED_UPLOAD_CONTEXT = {
+    "create_permission_factory": permissions.check_has_write_scope,
+    "read_permission_factory": permissions.check_is_record_owner,
+    "update_permission_factory": permissions.check_has_write_scope_and_is_record_owner,
+    "delete_permission_factory": permissions.check_has_write_scope_and_is_record_owner,
+}
