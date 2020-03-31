@@ -2,14 +2,9 @@ from enum import Enum
 from typing import Dict
 from typing import Mapping
 from typing import Union
-from urllib.parse import urlparse
-
-from flask import current_app
-from werkzeug.exceptions import HTTPException
 
 from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
-
 from invenio_sword.enum import FileState
 from invenio_sword.enum import ObjectTagKey
 
@@ -50,16 +45,3 @@ class TagManager(Dict[ObjectTagKey, Union[str, Enum]]):
             self[mapping_key] = value
         for kwargs_key, value in kwargs.items():
             self[ObjectTagKey(kwargs_key)] = value
-
-
-def get_segmented_upload_record_id_for_url(url, hostname):
-    url_adapter = current_app.url_map.bind(hostname)
-
-    parsed_url = urlparse(url)
-    if parsed_url.hostname == url_adapter.server_name:
-        try:
-            rule, rv = url_adapter.match(parsed_url.path)
-        except HTTPException:
-            return None
-        if rule == "invenio_sword.temporary_url":
-            return rv["temporary_id"]
