@@ -1,13 +1,18 @@
+import io
 import uuid
 from http import HTTPStatus
 
 import pytest
 
 from helpers import login
-from invenio_files_rest.models import MultipartObject, Part
+from invenio_files_rest.models import MultipartObject, Part, ObjectVersion
 from invenio_records.models import RecordMetadata
-from invenio_sword.api import SegmentedUploadRecord
-from sword3common.constants import JSON_LD_CONTEXT
+from invenio_sword import tasks
+from invenio_sword.api import SegmentedUploadRecord, SWORDDeposit
+from invenio_sword.enum import ObjectTagKey, FileState
+from invenio_sword.schemas import ByReferenceFileDefinition
+from invenio_sword.utils import get_segmented_upload_record_id_for_url, TagManager
+from sword3common.constants import JSON_LD_CONTEXT, PackagingFormat
 
 
 def test_start_segmented_unauthenticated(api):
@@ -237,3 +242,63 @@ def test_delete_segmented_upload(api, users, location):
 
         assert MultipartObject.query.count() == 0
         assert Part.query.count() == 0
+
+
+def test_get_segmented_upload_record_id_for_url(api):
+    with api.test_request_context():
+        record_id = uuid.uuid4()
+
+        assert (
+            get_segmented_upload_record_id_for_url(
+                f"https://localhost/sword/staging/{record_id}", "localhost"
+            )
+            == record_id
+        )
+
+
+def test_by_reference_sets_tag(api, users, location, task_delay):
+    with api.test_request_context():
+        # Assemble a segmented upload from parts, and complete it
+        segmented_upload_record: SegmentedUploadRecord = SegmentedUploadRecord.create(
+            {}
+        )
+        multipart_object = MultipartObject.create(
+            bucket=segmented_upload_record.bucket,
+            key="some-key",
+            size=15,
+            chunk_size=10,
+        )
+        Part.create(multipart_object, 0, stream=io.BytesIO(b"abcdefghij"))
+        Part.create(multipart_object, 1, stream=io.BytesIO(b"klmno"))
+        multipart_object.complete()
+
+        record: SWORDDeposit = SWORDDeposit.create({})
+        record.set_by_reference_files(
+            [
+                ByReferenceFileDefinition(
+                    temporary_id=segmented_upload_record.id,
+                    content_disposition="attachment; filename=something.txt",
+                    content_type="text/plain",
+                    packaging=PackagingFormat.Binary,
+                    dereference=True,
+                ),
+            ],
+            lambda *args: True,
+            "http://localhost/",
+        )
+
+        object_version = ObjectVersion.query.one()
+        tags = TagManager(object_version)
+
+        assert tags == {
+            ObjectTagKey.OriginalDeposit: "true",
+            ObjectTagKey.ByReferenceTemporaryID: str(segmented_upload_record.id),
+            ObjectTagKey.Packaging: "http://purl.org/net/sword/3.0/package/Binary",
+            ObjectTagKey.FileState: FileState.Pending,
+            ObjectTagKey.ByReferenceDereference: "true",
+            ObjectTagKey.ByReferenceNotDeleted: "true",
+        }
+
+        tasks.dereference_object(record.id, object_version.version_id)
+
+        assert object_version.file.storage().open().read() == b"abcdefghijklmno"

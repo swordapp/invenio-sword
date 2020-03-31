@@ -45,7 +45,7 @@ SWORD_ENDPOINTS: Dict[str, SwordEndpointDefinition] = {
         "search_type": None,
         # By-reference
         "dereference_policy": (
-            lambda object_version, by_reference_file: by_reference_file["dereference"]
+            lambda object_version, by_reference_file: by_reference_file.dereference
         ),
     }
     for name, options in DEPOSIT_REST_ENDPOINTS.items()

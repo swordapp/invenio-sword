@@ -1,5 +1,6 @@
 import logging
 import urllib.request
+import uuid
 from typing import Iterable
 from typing import Sequence
 from typing import Union
@@ -7,11 +8,11 @@ from typing import Union
 import celery
 from celery.result import AsyncResult
 from invenio_db import db
-from invenio_files_rest.models import ObjectVersion
-from invenio_files_rest.models import ObjectVersionTag
 from sqlalchemy import true
 
-from invenio_sword.api import SWORDDeposit
+from invenio_files_rest.models import MultipartObject, ObjectVersion
+from invenio_files_rest.models import ObjectVersionTag
+from invenio_sword.api import SWORDDeposit, SegmentedUploadRecord
 from invenio_sword.enum import FileState
 from invenio_sword.enum import ObjectTagKey
 from invenio_sword.packaging import Packaging
@@ -38,17 +39,29 @@ def dereference_object(record_id, version_id):
 
     tags = TagManager(object_version)
 
-    if ObjectTagKey.ByReferenceURL not in tags:
-        logger.error("Cannot fetch by-reference file (%s) without URL", object_version)
-        raise ValueError(
-            "Missing URL for by-reference file {!r}".format(object_version)
-        )
-
     try:
-        tags[ObjectTagKey.FileState] = FileState.Downloading
-
-        response = urllib.request.urlopen(tags[ObjectTagKey.ByReferenceURL])
-        object_version.set_contents(response)
+        if ObjectTagKey.ByReferenceURL in tags:
+            tags[ObjectTagKey.FileState] = FileState.Downloading
+            url = tags[ObjectTagKey.ByReferenceURL]
+            response = urllib.request.urlopen(url)
+            object_version.set_contents(response)
+            pass
+        elif ObjectTagKey.ByReferenceTemporaryID in tags:
+            tags[ObjectTagKey.FileState] = FileState.Downloading
+            temporary_id = uuid.UUID(tags[ObjectTagKey.ByReferenceTemporaryID])
+            segmented_upload_record = SegmentedUploadRecord.get_record(temporary_id)
+            multipart_object: MultipartObject = MultipartObject.query.filter_by(
+                bucket_id=segmented_upload_record.bucket_id
+            ).one()
+            if not multipart_object.completed:
+                raise ValueError(
+                    "Segmented upload must be completed before it can be ingested by-reference"
+                )
+            object_version.file_id = multipart_object.file_id
+        else:
+            raise ValueError(
+                "Missing URL for by-reference file {!r}".format(object_version)
+            )
         tags[ObjectTagKey.FileState] = FileState.Pending
         del tags[ObjectTagKey.ByReferenceNotDeleted]
         return [object_version.key]

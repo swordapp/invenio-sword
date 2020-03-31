@@ -9,6 +9,7 @@ class ObjectTagKey(enum.Enum):
     MetadataFormat = "invenio_sword.metadataFormat"
     FileState = "invenio_sword.fileState"
     ByReferenceURL = "invenio_sword.byReferenceURL"
+    ByReferenceTemporaryID = "invenio_sword.byReferenceTemporaryID"
     ByReferenceDereference = "invenio_sword.byReferenceDereference"
     ByReferenceTTL = "invenio_sword.byReferenceTTL"
     ByReferenceContentLength = "invenio_sword.byReferenceContentLength"
