@@ -17,6 +17,7 @@ def test_delete_old_files(api, location, es, task_delay):
                     url="http://example.com/one",
                     content_disposition="attachment; filename=br-yes.html",
                     content_type="text/html",
+                    content_length=100,
                     packaging=PackagingFormat.Binary,
                     dereference=False,
                 ),
