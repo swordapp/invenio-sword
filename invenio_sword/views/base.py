@@ -129,20 +129,25 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         elif replace:
             record.set_metadata(None, self.metadata_class, replace=replace)
 
-        if by_reference_deposit:  # pragma: nocover
+        if by_reference_deposit:
+            by_reference_schema = ByReferenceSchema(
+                context={"url_adapter": current_app.create_url_adapter(request)},
+            )
             if metadata_deposit:
-                by_reference = ByReferenceSchema().load(request.json["by-reference"])
+                by_reference = by_reference_schema.load(request.json["by-reference"])
             else:
-                by_reference = ByReferenceSchema().load(request.json)
+                by_reference = by_reference_schema.load(request.json)
             record.set_by_reference_files(
                 by_reference["files"],
                 dereference_policy=self.endpoint_options["dereference_policy"],
+                request_url=request.url,
                 replace=replace,
             )
         elif replace:
             record.set_by_reference_files(
                 [],
                 dereference_policy=self.endpoint_options["dereference_policy"],
+                request_url=request.url,
                 replace=replace,
             )
 

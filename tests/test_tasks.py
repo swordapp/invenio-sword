@@ -1,5 +1,6 @@
 import io
 
+from invenio_sword.schemas import ByReferenceFileDefinition
 from sword3common.constants import PackagingFormat
 
 from invenio_sword import tasks
@@ -12,22 +13,24 @@ def test_delete_old_files(api, location, es, task_delay):
 
         record.set_by_reference_files(
             [
-                {
-                    "uri": "http://example.com/one",
-                    "content_disposition": "attachment; filename=br-yes.html",
-                    "content_type": "text/html",
-                    "packaging": PackagingFormat.Binary,
-                    "dereference": False,
-                },
-                {
-                    "uri": "http://example.com/two",
-                    "content_disposition": "attachment; filename=br-no.html",
-                    "content_type": "text/html",
-                    "packaging": PackagingFormat.Binary,
-                    "dereference": False,
-                },
+                ByReferenceFileDefinition(
+                    url="http://example.com/one",
+                    content_disposition="attachment; filename=br-yes.html",
+                    content_type="text/html",
+                    content_length=100,
+                    packaging=PackagingFormat.Binary,
+                    dereference=False,
+                ),
+                ByReferenceFileDefinition(
+                    url="http://example.com/two",
+                    content_disposition="attachment; filename=br-no.html",
+                    content_type="text/html",
+                    packaging=PackagingFormat.Binary,
+                    dereference=False,
+                ),
             ],
-            dereference_policy=lambda record, brf: brf["dereference"],
+            dereference_policy=lambda record, brf: brf.dereference,
+            request_url="http://localhost/something",
             replace=False,
         )
 

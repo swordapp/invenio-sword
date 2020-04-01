@@ -1,25 +1,68 @@
+import datetime
+import uuid
+from urllib.parse import urlparse
+
 import math
 from flask import current_app
-
-from marshmallow import fields, validates, validates_schema, ValidationError
 from marshmallow import Schema
+from marshmallow import ValidationError, fields, post_load, validates, validates_schema
 from marshmallow import validate
+from marshmallow.validate import Range
+from werkzeug.exceptions import HTTPException
+
+from sword3common.constants import JSON_LD_CONTEXT, PackagingFormat
 
 __all__ = ["ByReferenceSchema"]
 
-from marshmallow.validate import Range
 
-from sword3common.constants import PackagingFormat, JSON_LD_CONTEXT
+class ByReferenceFileDefinition:
+    def __init__(
+        self,
+        *,
+        url: str = None,
+        temporary_id: uuid.UUID = None,
+        content_disposition: str,
+        content_type: str,
+        content_length: int = None,
+        dereference: bool,
+        packaging: str,
+        ttl: datetime.datetime = None
+    ):
+        assert url or temporary_id
+        self.url = url
+        self.temporary_id = temporary_id
+        self.content_disposition = content_disposition
+        self.content_type = content_type
+        self.content_length = content_length
+        self.dereference = dereference
+        self.packaging = packaging
+        self.ttl = ttl
 
 
 class _ByReferenceFileSchema(Schema):
-    uri = fields.Url(data_key="@id", required=True)
+    url = fields.Url(data_key="@id", required=True)
     content_disposition = fields.String(data_key="contentDisposition", required=True)
     content_length = fields.Integer(data_key="contentLength", strict=True)
     content_type = fields.String(data_key="contentType", required=True)
     dereference = fields.Boolean(required=True)
     packaging = fields.String(missing=PackagingFormat.Binary)
     ttl = fields.AwareDateTime()
+
+    @validates_schema
+    def validate_url(self, data, **kwargs):
+        parsed_url = urlparse(data["url"])
+        if parsed_url.hostname == self.context["url_adapter"].server_name:
+            try:
+                rule, rv = self.context["url_adapter"].match(parsed_url.path)
+            except HTTPException:
+                return None
+            if rule == "invenio_sword.temporary_url":
+                data["temporary_id"] = rv["temporary_id"]
+                del data["url"]
+
+    @post_load
+    def make_object(self, data, **kwargs):
+        return ByReferenceFileDefinition(**data)
 
 
 class ByReferenceSchema(Schema):

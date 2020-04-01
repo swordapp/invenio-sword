@@ -5,7 +5,6 @@ from typing import Union
 
 from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
-
 from invenio_sword.enum import FileState
 from invenio_sword.enum import ObjectTagKey
 

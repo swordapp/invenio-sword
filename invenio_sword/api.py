@@ -9,6 +9,10 @@ import typing
 import celery
 from flask import url_for
 from invenio_db import db
+from sqlalchemy import true
+from werkzeug.exceptions import Conflict
+from werkzeug.http import parse_options_header
+
 from invenio_deposit.api import Deposit
 from invenio_deposit.api import has_status
 from invenio_files_rest.models import ObjectVersion
@@ -16,19 +20,16 @@ from invenio_files_rest.models import ObjectVersionTag
 from invenio_pidstore.resolver import Resolver
 from invenio_records_files.api import FileObject, Record
 from invenio_records_files.api import FilesIterator
-from sqlalchemy import true
-from sword3common.constants import DepositState
-from sword3common.constants import Rel
-from werkzeug.exceptions import Conflict
-from werkzeug.http import parse_options_header
-
-from .metadata import Metadata
-from .packaging import Packaging
-from .utils import TagManager
 from invenio_sword.enum import FileState
 from invenio_sword.enum import ObjectTagKey
 from invenio_sword.metadata import SWORDMetadata
 from invenio_sword.typing import BytesReader
+from sword3common.constants import DepositState
+from sword3common.constants import Rel
+from .metadata import Metadata
+from .packaging import Packaging
+from .schemas import ByReferenceFileDefinition
+from .utils import TagManager
 
 logger = logging.getLogger(__name__)
 
@@ -323,7 +324,11 @@ class SWORDDeposit(Deposit):
             return metadata
 
     def set_by_reference_files(
-        self, by_reference_files, dereference_policy, replace=True
+        self,
+        by_reference_files: typing.Collection[ByReferenceFileDefinition],
+        dereference_policy,
+        request_url,
+        replace=True,
     ):
         from . import tasks
 
@@ -331,9 +336,9 @@ class SWORDDeposit(Deposit):
 
         for by_reference_file in by_reference_files:
             content_disposition, content_disposition_options = parse_options_header(
-                by_reference_file["content_disposition"],
+                by_reference_file.content_disposition,
             )
-            content_type, _ = parse_options_header(by_reference_file["content_type"])
+            content_type, _ = parse_options_header(by_reference_file.content_type)
             filename = content_disposition_options["filename"]
             object_version = ObjectVersion.create(
                 self.bucket, filename, mimetype=content_type
@@ -342,20 +347,26 @@ class SWORDDeposit(Deposit):
             tags.update(
                 {
                     ObjectTagKey.FileState: FileState.Pending,
-                    ObjectTagKey.ByReferenceURL: by_reference_file["uri"],
                     ObjectTagKey.OriginalDeposit: "true",
-                    ObjectTagKey.Packaging: by_reference_file["packaging"],
+                    ObjectTagKey.Packaging: by_reference_file.packaging,
                     ObjectTagKey.ByReferenceDereference: (
-                        "true" if by_reference_file["dereference"] else "false"
+                        "true" if by_reference_file.dereference else "false"
                     ),
                     ObjectTagKey.ByReferenceNotDeleted: "true",
                 }
             )
-            if "ttl" in by_reference_file:
-                tags[ObjectTagKey.ByReferenceTTL] = by_reference_file["ttl"]
-            if "contentLength" in by_reference_file:
+            if by_reference_file.url:
+                tags[ObjectTagKey.ByReferenceURL] = by_reference_file.url
+            elif by_reference_file.temporary_id:
+                tags[ObjectTagKey.ByReferenceTemporaryID] = str(
+                    by_reference_file.temporary_id
+                )
+
+            if by_reference_file.ttl:
+                tags[ObjectTagKey.ByReferenceTTL] = by_reference_file.ttl.isoformat()
+            if by_reference_file.content_length:
                 tags[ObjectTagKey.ByReferenceContentLength] = str(
-                    by_reference_file["contentLength"]
+                    by_reference_file.content_length
                 )
 
             if dereference_policy(object_version, by_reference_file):
@@ -378,7 +389,9 @@ class SWORDDeposit(Deposit):
 
         tags = TagManager(object_version)
         assert tags[ObjectTagKey.Packaging]
-        assert tags[ObjectTagKey.ByReferenceURL]
+        assert tags.get(ObjectTagKey.ByReferenceURL) or tags.get(
+            ObjectTagKey.ByReferenceTemporaryID
+        )
         assert object_version.is_head
 
         tags[ObjectTagKey.FileState] = FileState.Pending

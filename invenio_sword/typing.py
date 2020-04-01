@@ -1,19 +1,21 @@
 from __future__ import annotations
 
-import sys
 from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import Optional
-from typing import Type
 from typing import TYPE_CHECKING
+from typing import Type
 from typing import Union
+
+import sys
 
 
 if TYPE_CHECKING:  # pragma: nocover
     from invenio_files_rest.models import ObjectVersion
     from invenio_sword.metadata import Metadata
     from invenio_sword.packaging import Packaging
+    from invenio_sword.schemas import ByReferenceFileDefinition
     from invenio_deposit.search import DepositSearch
     from invenio_sword.api import SWORDDeposit
 
@@ -58,4 +60,4 @@ class SwordEndpointDefinition(TypedDict):
 
     default_media_type: str
 
-    dereference_policy: Callable[[ObjectVersion, Dict], bool]
+    dereference_policy: Callable[[ObjectVersion, ByReferenceFileDefinition], bool]
