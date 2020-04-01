@@ -31,7 +31,7 @@ def dereference_object(record_id, version_id):
             "Not fetching by-reference file (%s) because a newer version of the object now exists",
             object_version,
         )
-        return
+        return [object_version.key]
 
     if object_version.file_id:
         logger.warning("File has already been dereferenced (%s)", object_version)

@@ -354,3 +354,39 @@ def test_by_reference_sets_tag(api, users, location, task_delay):
         tasks.dereference_object(record.id, object_version.version_id)
 
         assert object_version.file.storage().open().read() == b"abcdefghijklmno"
+
+
+def test_dereference_missing_upload(api, users, location, task_delay):
+    with api.test_request_context():
+        # Assemble a segmented upload from parts, and complete it
+        segmented_upload_record: SegmentedUploadRecord = SegmentedUploadRecord.create(
+            {}
+        )
+        MultipartObject.create(
+            bucket=segmented_upload_record.bucket,
+            key="some-key",
+            size=15,
+            chunk_size=10,
+        )
+
+        record: SWORDDeposit = SWORDDeposit.create({})
+        record.set_by_reference_files(
+            [
+                ByReferenceFileDefinition(
+                    temporary_id=segmented_upload_record.id,
+                    content_disposition="attachment; filename=something.txt",
+                    content_type="text/plain",
+                    packaging=PackagingFormat.Binary,
+                    dereference=True,
+                ),
+            ],
+            lambda *args: True,
+            "http://localhost/",
+        )
+
+        object_version = ObjectVersion.query.one()
+
+        with pytest.raises(ValueError):
+            tasks.dereference_object(record.id, object_version.version_id)
+
+        assert TagManager(object_version)[ObjectTagKey.FileState] == FileState.Error

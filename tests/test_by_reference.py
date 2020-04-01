@@ -203,6 +203,33 @@ def test_dereference_already_dereferenced(
         assert httpserver.log == []
 
 
+def test_dereference_when_not_head(
+    api, location, es, httpserver: pytest_httpserver.HTTPServer
+):
+    with api.test_request_context():
+        record = SWORDDeposit.create({})
+
+        object_version = ObjectVersion.create(
+            bucket=record.bucket, key="some-file.txt", stream=io.BytesIO(b"data")
+        )
+        TagManager(object_version).update(
+            {
+                ObjectTagKey.ByReferenceURL: httpserver.url_for("some-file.txt"),
+                ObjectTagKey.Packaging: PackagingFormat.SimpleZip,
+            }
+        )
+        # This makes the object version we already had a non-head one
+        ObjectVersion.delete(record.bucket, object_version.key)
+
+        httpserver.expect_request("/some-file.txt").respond_with_data(b"data")
+
+        db.session.refresh(object_version)
+
+        result = tasks.dereference_object(record.id, object_version.version_id)
+        assert result == ["some-file.txt"]
+        assert httpserver.log == []
+
+
 def test_error_dereferencing(
     api, users, location, es, httpserver: pytest_httpserver.HTTPServer
 ):
