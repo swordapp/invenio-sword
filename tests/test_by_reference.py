@@ -2,6 +2,7 @@ import io
 import json
 import unittest.mock
 import urllib.error
+import uuid
 from http import HTTPStatus
 
 import pytest
@@ -11,6 +12,7 @@ from invenio_db import db
 from invenio_files_rest.models import Bucket
 from invenio_files_rest.models import ObjectVersion
 from invenio_records.models import RecordMetadata
+from invenio_sword.schemas import ByReferenceSchema
 from sword3common.constants import JSON_LD_CONTEXT
 from sword3common.constants import PackagingFormat
 from sword3common.exceptions import ContentTypeNotAcceptable
@@ -352,3 +354,41 @@ def test_error_unpacking(api, users, location, es):
 
         tags = TagManager(object_version)
         assert tags.get(ObjectTagKey.FileState) == FileState.Error
+
+
+def test_schema_different_url_types(api):
+    temporary_id = uuid.uuid4()
+
+    schema = ByReferenceSchema(
+        context={"url_adapter": api.url_map.bind("invenio.example")}
+    )
+    result = schema.load(
+        {
+            "@context": JSON_LD_CONTEXT,
+            "@type": "ByReference",
+            "byReferenceFiles": [
+                {
+                    "@id": "http://elsewhere.example/",
+                    "contentDisposition": "attachment; filename=file.txt",
+                    "contentType": "text/plain",
+                    "dereference": True,
+                },
+                {
+                    "@id": "http://invenio.example/sword/service-document",
+                    "contentDisposition": "attachment; filename=file.txt",
+                    "contentType": "text/plain",
+                    "dereference": True,
+                },
+                {
+                    "@id": f"http://invenio.example/sword/staging/{temporary_id}",
+                    "contentDisposition": "attachment; filename=file.txt",
+                    "contentType": "text/plain",
+                    "dereference": True,
+                },
+            ],
+        }
+    )
+
+    assert result["files"][0].url == "http://elsewhere.example/"
+    assert result["files"][1].url == "http://invenio.example/sword/service-document"
+    assert result["files"][2].temporary_id == temporary_id
