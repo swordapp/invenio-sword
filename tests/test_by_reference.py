@@ -129,6 +129,79 @@ def test_by_reference_deposit(
         assert httpserver.log == []
 
 
+def test_by_reference_and_metadata_deposit(
+    api,
+    users,
+    location,
+    es,
+    httpserver: pytest_httpserver.HTTPServer,
+    task_delay: unittest.mock.Mock,
+):
+    with api.test_request_context(), api.test_client() as client:
+        client.post(
+            url_for_security("login"),
+            data={"email": users[0]["email"], "password": "tester"},
+        )
+
+        response = client.post(
+            "/sword/service-document",
+            data=json.dumps(
+                {
+                    "metadata": {
+                        "@context": JSON_LD_CONTEXT,
+                        "@type": "Metadata",
+                        "dc:title": "Some data",
+                    },
+                    "by-reference": {
+                        "@context": JSON_LD_CONTEXT,
+                        "@type": "ByReference",
+                        "byReferenceFiles": [
+                            {
+                                "@id": httpserver.url_for("some-resource.json"),
+                                "contentDisposition": "attachment; filename=some-resource.json",
+                                "contentType": "application/json",
+                                "dereference": True,
+                            }
+                        ],
+                    },
+                }
+            ),
+            headers={
+                "Content-Disposition": "attachment; by-reference=true; metadata=true",
+                "Content-Type": "application/ld+json",
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+        assert response.is_json
+
+        bucket = Bucket.query.one()
+        object_version: ObjectVersion = ObjectVersion.query.filter(
+            ObjectVersion.bucket == bucket, ObjectVersion.key == "some-resource.json",
+        ).one()
+
+        record_metadata = RecordMetadata.query.one()
+
+        assert record_metadata.json["metadata"] == {
+            "title_statement": {"title": "Some data"}
+        }
+
+        assert task_delay.call_args_list == (
+            [
+                unittest.mock.call(
+                    tasks.dereference_object.s(
+                        str(record_metadata.id), str(object_version.version_id)
+                    )
+                    | tasks.unpack_object.si(
+                        str(record_metadata.id), str(object_version.version_id)
+                    )
+                )
+            ]
+        )
+
+        # Ensure that no requests were made
+        assert httpserver.log == []
+
+
 def test_dereference_task(
     api, users, location, es, httpserver: pytest_httpserver.HTTPServer
 ):
