@@ -6,17 +6,26 @@ Views
 Blueprint creation
 ------------------
 
+.. .. module:: invenio_sword.views.base
+
 .. autofunction:: create_blueprint
 
 
-View classes
-------------
+Base class
+----------
 
 .. autoclass:: SWORDDepositView
    :members:
 
+Service document
+----------------
+
 .. autoclass:: ServiceDocumentView
    :members:
+
+
+Deposit manipulation
+--------------------
 
 .. autoclass:: DepositStatusView
    :members:
@@ -28,4 +37,14 @@ View classes
    :members:
 
 .. autoclass:: DepositFileView
+   :members:
+
+
+Segmented uploads
+-----------------
+
+.. autoclass:: StagingURLView
+   :members:
+
+.. autoclass:: TemporaryURLView
    :members:

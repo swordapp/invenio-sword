@@ -91,6 +91,10 @@ class TemporaryURLView(SegmentedUploadView):
         )
 
     def get(self, *, record: SegmentedUploadRecord, multipart_object: MultipartObject):
+        """Retrieve a Segmented File Upload Document
+
+        :see also: https://swordapp.github.io/swordv3/swordv3.html#9.7.
+        """
         part_numbers = set(
             db.session.query(Part.part_number).filter_by(
                 upload_id=multipart_object.upload_id
