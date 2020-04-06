@@ -56,6 +56,7 @@ _SEGMENTED_UPLOAD_PID = (
     'pid(stagingid,record_class="invenio_sword.api:SegmentedUploadRecord")'
 )
 
+SWORD_STAGING_MAX_IDLE = 3600
 SWORD_STAGING_PID_TYPE = "stagingid"
 SWORD_STAGING_URL_ROUTE = "/sword/staging"
 SWORD_TEMPORARY_URL_ROUTE = "/sword/staging/<uuid:temporary_id>"
