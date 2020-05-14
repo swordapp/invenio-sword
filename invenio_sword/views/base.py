@@ -1,4 +1,5 @@
 import typing
+from inspect import Signature
 
 import sword3common.constants
 import sword3common.exceptions
@@ -15,10 +16,10 @@ from ..metadata import Metadata
 from ..schemas import ByReferenceSchema
 from ..typing import BytesReader
 
-__all__ = ["SWORDDepositView"]
+__all__ = ["SWORDDepositMixin"]
 
 
-class SWORDDepositView(ContentNegotiatedMethodView):
+class SWORDDepositMixin:
     """
     Base class for all SWORD views
 
@@ -32,7 +33,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
 
     def __init__(self, serializers, ctx, *args, **kwargs):
         """Constructor."""
-        super(SWORDDepositView, self).__init__(
+        super(SWORDDepositMixin, self).__init__(
             serializers,
             default_media_type=ctx.get("default_media_type"),
             *args,
@@ -82,6 +83,12 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         """Whether the request declares that the deposit is still in progress, via the ``In-Progress`` header"""
         return request.headers.get("In-Progress") == "true"
 
+    def get_by_reference_schema_context(self):
+        return {"url_adapter": current_app.create_url_adapter(request)}
+
+    def get_by_reference_schema(self):
+        return ByReferenceSchema(context=self.get_by_reference_schema_context())
+
     def update_deposit_status(self, record: SWORDDeposit) -> None:
         """Updates a deposit status from the In-Progress header
 
@@ -130,9 +137,7 @@ class SWORDDepositView(ContentNegotiatedMethodView):
             record.set_metadata(None, self.metadata_class, replace=replace)
 
         if by_reference_deposit:
-            by_reference_schema = ByReferenceSchema(
-                context={"url_adapter": current_app.create_url_adapter(request)},
-            )
+            by_reference_schema = self.get_by_reference_schema()
             if metadata_deposit:
                 by_reference = by_reference_schema.load(request.json["by-reference"])
             else:
@@ -154,14 +159,16 @@ class SWORDDepositView(ContentNegotiatedMethodView):
         if not (metadata_deposit or by_reference_deposit) and (
             request.content_type or request.content_length
         ):
-            self.ingest_file(record, request.stream, replace=replace)
+            maybe_task_signature = self.ingest_file(
+                record, request.stream, replace=replace
+            )
         elif replace:
+            # Ignore return value as this is deleting old objects synchronously
             self.ingest_file(record, None, replace=replace)
 
         self.update_deposit_status(record)
 
         record.commit()
-        db.session.commit()
 
     def ingest_file(
         self, record: SWORDDeposit, stream: typing.Optional[BytesReader], replace=True

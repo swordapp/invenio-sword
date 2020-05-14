@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Collection
+
 from invenio_files_rest.models import ObjectVersion
 from sword3common.constants import PackagingFormat
 
@@ -20,3 +22,6 @@ class BinaryPackaging(Packaging):
 
     def unpack(self, object_version: ObjectVersion):
         return self.shortcut_unpack(object_version)
+
+    def get_file_list(self, object_version: ObjectVersion) -> Collection[str]:
+        return []

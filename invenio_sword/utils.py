@@ -1,7 +1,12 @@
+import functools
 from enum import Enum
-from typing import Dict
+from typing import Dict, Callable, Any
 from typing import Mapping
 from typing import Union
+
+import sqlalchemy.orm.session
+from invenio_db import db
+from sqlalchemy import event
 
 from invenio_files_rest.models import ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
@@ -45,3 +50,26 @@ class TagManager(Dict[ObjectTagKey, Union[str, Enum]]):
             self[mapping_key] = value
         for kwargs_key, value in kwargs.items():
             self[ObjectTagKey(kwargs_key)] = value
+
+
+# Functionality to execute functions once a session has been committed, ensuring that data in the database is available
+# to other processes, e.g. a celery worker
+
+_after_commit_callback_session_info_key = "invenio-sword-after-commit-callbacks"
+
+
+def register_after_commit_callback(_callback: Callable[[], Any], *args, **kwargs):
+    # Should only be called within a transaction
+    assert db.session.is_active
+    if args or kwargs:
+        _callback = functools.partial(_callback, *args, **kwargs)
+    try:
+        db.session.info[_after_commit_callback_session_info_key].append(_callback)
+    except KeyError:
+        db.session.info[_after_commit_callback_session_info_key] = [_callback]
+
+
+@event.listens_for(db.session, "after_commit")
+def session_after_commit_hook(session: sqlalchemy.orm.session.Session):
+    for callback in session.info.pop(_after_commit_callback_session_info_key, ()):
+        callback()

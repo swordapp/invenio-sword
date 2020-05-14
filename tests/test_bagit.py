@@ -24,6 +24,7 @@
 """Test the BagIt implementation."""
 import os
 from http import HTTPStatus
+from unittest import mock
 
 import pytest
 from flask import url_for
@@ -31,6 +32,7 @@ from flask_security import url_for_security
 from invenio_files_rest.models import Bucket
 from invenio_files_rest.models import ObjectVersion
 from invenio_records.models import RecordMetadata
+from invenio_sword import tasks
 from sword3common.constants import PackagingFormat
 from sword3common.exceptions import ContentMalformed
 from sword3common.exceptions import ContentTypeNotAcceptable
@@ -43,7 +45,9 @@ from invenio_sword.packaging import Packaging
 def test_post_service_document_with_bagit_bag(
     api, users, location, fixtures_path, task_delay
 ):
-    with api.test_request_context(), api.test_client() as client:
+    with api.test_request_context(), api.test_client() as client, mock.patch.object(
+        tasks.unpack_object, "delay"
+    ) as unpack_delay:
         client.post(
             url_for_security("login"),
             data={"email": users[0]["email"], "password": "tester"},
@@ -62,10 +66,8 @@ def test_post_service_document_with_bagit_bag(
         assert response.status_code == HTTPStatus.CREATED
 
         # Check that we attempted to queue a task
-        assert task_delay.call_count == 1
-        task_self = task_delay.call_args[0][0]
-
-        task_self.apply()
+        assert unpack_delay.call_count == 1
+        tasks.unpack_object(*unpack_delay.call_args[0])
 
         # db.session.refresh(record)
 

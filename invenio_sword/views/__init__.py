@@ -1,4 +1,4 @@
-from .base import SWORDDepositView
+from .base import SWORDDepositMixin
 
 from .file import DepositFileView
 from .fileset import DepositFilesetView
@@ -10,7 +10,7 @@ from .status import DepositStatusView
 from .blueprint import create_blueprint
 
 __all__ = [
-    "SWORDDepositView",
+    "SWORDDepositMixin",
     "DepositFileView",
     "DepositFilesetView",
     "DepositMetadataView",

@@ -3,15 +3,20 @@ from http import HTTPStatus
 from flask import current_app, url_for
 from flask import request
 from flask import Response
+from invenio_db import db
+
 from invenio_records_rest.views import need_record_permission
 from invenio_records_rest.views import verify_record_permission
 
-from . import SWORDDepositView
 
 __all__ = ["ServiceDocumentView"]
 
+from invenio_rest import ContentNegotiatedMethodView
 
-class ServiceDocumentView(SWORDDepositView):
+from invenio_sword.views import SWORDDepositMixin
+
+
+class ServiceDocumentView(SWORDDepositMixin, ContentNegotiatedMethodView):
     view_name = "{}_service_document"
 
     def get(self):
@@ -37,7 +42,7 @@ class ServiceDocumentView(SWORDDepositView):
             "acceptPackaging": sorted(self.endpoint_options["packaging_formats"]),
             "acceptMetadata": sorted(self.endpoint_options["metadata_formats"]),
             # Segmented uploads
-            "staging": url_for("invenio_sword.staging_url"),
+            "staging": url_for("invenio_sword.staging_url", _external=True),
             "stagingMaxIdle": current_app.config["SWORD_STAGING_MAX_IDLE"],
             "maxAssembledSize": min(
                 current_app.config["FILES_REST_MULTIPART_MAX_PARTS"]
@@ -50,14 +55,17 @@ class ServiceDocumentView(SWORDDepositView):
     @need_record_permission("create_permission_factory")
     def post(self, **kwargs):
         """Initiate a SWORD deposit"""
-        record = self.create_deposit()
+        with db.session.begin_nested():
+            record = self.create_deposit()
 
-        # Check permissions
-        permission_factory = self.create_permission_factory
-        if permission_factory:
-            verify_record_permission(permission_factory, record)
+            # Check permissions
+            permission_factory = self.create_permission_factory
+            if permission_factory:
+                verify_record_permission(permission_factory, record)
 
-        self.update_deposit(record, replace=False)
+            self.update_deposit(record, replace=False)
+
+        db.session.commit()
 
         response = self.make_response(record.get_status_as_jsonld())  # type: Response
         response.status_code = HTTPStatus.CREATED

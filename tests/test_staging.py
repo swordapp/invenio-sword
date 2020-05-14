@@ -302,7 +302,7 @@ def test_post_by_reference_segmented(api, users, location, task_delay):
             ObjectTagKey.ByReferenceTemporaryID: str(segmented_upload_record.id),
             ObjectTagKey.FileState: FileState.Pending,
             ObjectTagKey.ByReferenceDereference: "true",
-            ObjectTagKey.ByReferenceNotDeleted: "true",
+            ObjectTagKey.NotDeleted: "true",
             ObjectTagKey.OriginalDeposit: "true",
             ObjectTagKey.ByReferenceTTL: ttl,
         }
@@ -348,7 +348,7 @@ def test_by_reference_sets_tag(api, users, location, task_delay):
             ObjectTagKey.Packaging: "http://purl.org/net/sword/3.0/package/Binary",
             ObjectTagKey.FileState: FileState.Pending,
             ObjectTagKey.ByReferenceDereference: "true",
-            ObjectTagKey.ByReferenceNotDeleted: "true",
+            ObjectTagKey.NotDeleted: "true",
         }
 
         tasks.dereference_object(record.id, object_version.version_id)

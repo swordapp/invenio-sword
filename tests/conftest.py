@@ -173,7 +173,7 @@ def base_app(request, test_metadata_format):
         InvenioPIDStore(app_)
         InvenioRecords(app_)
         search = InvenioSearch(app_)
-        search.register_mappings("deposits", "invenio_deposit.mappings")
+        # search.register_mappings("deposits", "invenio_deposit.mappings")
 
     api_app = Flask("testapiapp", instance_path=instance_path)
     api_app.url_map.converters["pid"] = PIDConverter

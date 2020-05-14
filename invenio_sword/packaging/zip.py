@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import uuid
 import zipfile
+from typing import Collection
 
 from invenio_files_rest.models import ObjectVersion
 from sword3common.constants import PackagingFormat
@@ -46,20 +47,19 @@ class SimpleZipPackaging(Packaging):
                     names = set(zip.namelist())
 
                     for name in names:
-                        archive_object_version = ObjectVersion.create(
-                            self.record.bucket,
-                            name,
-                            mimetype=mimetypes.guess_type(name)[0],
+                        self._set_file_content(
+                            key=name,
+                            media_type=mimetypes.guess_type(name)[0],
                             stream=zip.open(name),
-                        )
-
-                        tags = TagManager(archive_object_version)
-                        tags.update(
-                            {
-                                ObjectTagKey.FileSetFile: "true",
-                                ObjectTagKey.DerivedFrom: object_version.key,
-                            }
                         )
                 return names
         except zipfile.BadZipFile as e:
             raise ContentMalformed("Bad ZIP file") from e
+
+    def get_file_list(self, object_version: ObjectVersion) -> Collection[str]:
+        with object_version.file.storage().open() as f, zipfile.ZipFile(f) as zip:
+            return [
+                zipinfo.filename
+                for zipinfo in zip.filelist
+                if not zipinfo.filename.endswith("/")
+            ]

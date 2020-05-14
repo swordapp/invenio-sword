@@ -5,6 +5,7 @@ import io
 import json
 import logging
 import typing
+from inspect import Signature
 
 import celery
 from flask import url_for
@@ -26,6 +27,7 @@ from invenio_sword.metadata import SWORDMetadata
 from invenio_sword.typing import BytesReader
 from sword3common.constants import DepositState
 from sword3common.constants import Rel
+from . import utils
 from .metadata import Metadata
 from .packaging import Packaging
 from .schemas import ByReferenceFileDefinition
@@ -56,7 +58,7 @@ class SWORDFilesIterator(FilesIterator):
             ObjectVersion.is_head == true(),
             ObjectVersion.file_id.isnot(None)
             | (
-                (ObjectVersionTag.key == ObjectTagKey.ByReferenceNotDeleted.value)
+                (ObjectVersionTag.key == ObjectTagKey.NotDeleted.value)
                 & (ObjectVersionTag.value == "true")
             ),
         )
@@ -130,6 +132,14 @@ class SWORDDeposit(Deposit):
                     key=derived_from,
                     _external=True,
                 )
+            if tags.get(ObjectTagKey.ByReferenceURL):
+                link["byReference"] = tags[ObjectTagKey.ByReferenceURL]
+            elif tags.get(ObjectTagKey.ByReferenceTemporaryID):
+                link["byReference"] = url_for(
+                    "invenio_sword.temporary_url",
+                    temporary_id=tags[ObjectTagKey.ByReferenceTemporaryID],
+                    _external=True,
+                )
             if ObjectTagKey.Packaging in tags:
                 link["packaging"] = tags[ObjectTagKey.Packaging]
             if ObjectTagKey.MetadataFormat in tags:
@@ -137,6 +147,8 @@ class SWORDDeposit(Deposit):
                 link["metadataFormat"] = tags[ObjectTagKey.MetadataFormat]
 
             link["rel"] = sorted(rel)
+            # if not rel:
+            #     breakpoint()
 
             links.append(link)
 
@@ -212,7 +224,7 @@ class SWORDDeposit(Deposit):
                 content_disposition_options.get("filename"), content_type
             )
             object_version = ObjectVersion.create(
-                bucket=self.bucket, key=filename, stream=stream
+                bucket=self.bucket, key=filename, stream=stream, mimetype=content_type
             )
             TagManager(object_version).update(
                 {
@@ -220,14 +232,33 @@ class SWORDDeposit(Deposit):
                     ObjectTagKey.OriginalDeposit: "true",
                 }
             )
-            db.session.refresh(object_version)
-            task = self.unpack_object(object_version)
-            if replace:
-                task |= tasks.delete_old_objects.s(bucket_id=self.bucket_id)
-            task.delay()
-        elif replace:
+
+            unpacked_files = packaging.shortcut_unpack(object_version)
+            if unpacked_files is NotImplemented:
+                unpacked_files = packaging.get_file_list(object_version)
+                for name in unpacked_files:
+                    ov = ObjectVersion.create(bucket=self.bucket, key=name)
+                    TagManager(ov).update(
+                        {
+                            ObjectTagKey.NotDeleted: "true",
+                            ObjectTagKey.FileState: FileState.Unpacking,
+                            ObjectTagKey.FileSetFile: "true",
+                            ObjectTagKey.DerivedFrom: ov.key,
+                        }
+                    )
+                task = tasks.unpack_object.s(
+                    str(self.id), str(object_version.version_id)
+                )
+                utils.register_after_commit_callback(task.apply_async)
+            keys_not_to_delete = [object_version.key, *unpacked_files]
+        else:
+            keys_not_to_delete = []
+
+        if replace:
             # We can do this synchronously, because it'll be quick
-            tasks.delete_old_objects(bucket_id=self.bucket_id)
+            tasks.delete_old_objects(
+                ignore_keys=keys_not_to_delete, bucket_id=self.bucket_id
+            )
 
     # @has_status(status="draft")
     def set_metadata(
@@ -352,7 +383,7 @@ class SWORDDeposit(Deposit):
                     ObjectTagKey.ByReferenceDereference: (
                         "true" if by_reference_file.dereference else "false"
                     ),
-                    ObjectTagKey.ByReferenceNotDeleted: "true",
+                    ObjectTagKey.NotDeleted: "true",
                 }
             )
             if by_reference_file.url:
@@ -379,7 +410,7 @@ class SWORDDeposit(Deposit):
             task = celery.group(task_group) if len(task_group) > 1 else task_group[0]
             if replace:
                 task |= tasks.delete_old_objects.s(bucket_id=self.bucket_id)
-            task.delay()
+            utils.register_after_commit_callback(task.apply_async)
         elif replace:
             tasks.delete_old_objects(bucket_id=self.bucket_id)
 

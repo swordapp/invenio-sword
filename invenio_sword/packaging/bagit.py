@@ -6,6 +6,7 @@ import shutil
 import tempfile
 import uuid
 import zipfile
+from typing import Collection
 
 import bagit
 from invenio_files_rest.models import ObjectVersion
@@ -77,20 +78,13 @@ class SWORDBagItPackaging(Packaging):
                 # Ingest payload files
                 for name in bag.payload_entries():
                     with open(os.path.join(path, name), "rb") as payload_f:
-                        archive_object_version = ObjectVersion.create(
-                            self.record.bucket,
-                            name.split(os.path.sep, 1)[-1],
-                            mimetype=mimetypes.guess_type(name)[0],
+
+                        self._set_file_content(
+                            key=name.split(os.path.sep, 1)[-1],
+                            media_type=mimetypes.guess_type(name)[0],
                             stream=payload_f,
                         )
 
-                        tags = TagManager(archive_object_version)
-                        tags.update(
-                            {
-                                ObjectTagKey.FileSetFile: "true",
-                                ObjectTagKey.DerivedFrom: object_version.key,
-                            }
-                        )
                 return set(bag.payload_entries())
             except bagit.BagValidationError as e:
                 raise ValidationFailed(e.message) from e
@@ -98,3 +92,12 @@ class SWORDBagItPackaging(Packaging):
                 raise ContentMalformed(*e.args) from e
             except zipfile.BadZipFile as e:
                 raise ContentMalformed("Bad ZIP file") from e
+
+    def get_file_list(self, object_version: ObjectVersion) -> Collection[str]:
+        with object_version.file.storage().open() as f, zipfile.ZipFile(f) as zip:
+            return [
+                zipinfo.filename[5:]
+                for zipinfo in zip.filelist
+                if zipinfo.filename.startswith("data/")
+                and not zipinfo.filename.endswith("/")
+            ]

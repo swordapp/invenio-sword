@@ -2,6 +2,7 @@ import io
 import json
 import os
 from http import HTTPStatus
+from unittest import mock
 
 from flask import url_for
 from flask_security import url_for_security
@@ -11,6 +12,7 @@ from invenio_files_rest.models import ObjectVersionTag
 from sqlalchemy import null
 from sqlalchemy import true
 
+from invenio_sword import tasks
 from invenio_sword.api import SWORDDeposit
 from invenio_sword.enum import ObjectTagKey
 from invenio_sword.packaging import SWORDBagItPackaging
@@ -33,7 +35,9 @@ def test_get_fileset_url(api, users, location, es):
 
 
 def test_put_fileset_url(api, users, location, es, task_delay):
-    with api.test_request_context(), api.test_client() as client:
+    with api.test_request_context(), api.test_client() as client, mock.patch.object(
+        tasks.unpack_object, "delay"
+    ) as unpack_delay:
         client.post(
             url_for_security("login"),
             data={"email": users[0]["email"], "password": "tester"},
@@ -63,9 +67,8 @@ def test_put_fileset_url(api, users, location, es, task_delay):
         )
         assert response.status_code == HTTPStatus.NO_CONTENT
 
-        assert task_delay.call_count == 1
-        task_self = task_delay.call_args[0][0]
-        task_self.apply()
+        # This is a binary upload, so is shortcut-unpacked.
+        assert unpack_delay.call_count == 0
 
         # Check original ObjectVersion is marked deleted
         original_object_versions = list(
@@ -130,7 +133,9 @@ def test_post_fileset_url(api, users, location, es, task_delay):
 def test_delete_fileset(
     api, users, location, es, fixtures_path, test_metadata_format, task_delay
 ):
-    with api.test_request_context(), api.test_client() as client:
+    with api.test_request_context(), api.test_client() as client, mock.patch.object(
+        tasks.unpack_object, "delay"
+    ) as unpack_delay:
         client.post(
             url_for_security("login"),
             data={"email": users[0]["email"], "password": "tester"},
@@ -175,9 +180,9 @@ def test_delete_fileset(
             )
             assert response.status_code == HTTPStatus.OK
 
-        assert task_delay.call_count == 1
-        task_self = task_delay.call_args[0][0]
-        task_self.apply()
+        # Check that we attempted to queue a task
+        assert unpack_delay.call_count == 1
+        tasks.unpack_object(*unpack_delay.call_args[0])
 
         # One test metadata, one old SWORD metadata, one new SWORD metadata, one original deposit, and two files
         assert ObjectVersion.query.count() == 6

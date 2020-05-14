@@ -2,10 +2,13 @@ import io
 import json
 import os
 from http import HTTPStatus
+from unittest import mock
 
 import pytest
 from flask_security import url_for_security
 from invenio_files_rest.models import ObjectVersion
+from invenio_sword import tasks
+from sword3common.constants import PackagingFormat
 from sword3common.exceptions import ContentMalformed
 from sword3common.exceptions import ContentTypeNotAcceptable
 
@@ -104,7 +107,9 @@ def test_ingest(
     content_type,
     expected_links,
 ):
-    with api.test_request_context(), api.test_client() as client:
+    with api.test_request_context(), api.test_client() as client, mock.patch.object(
+        tasks.unpack_object, "delay"
+    ) as unpack_delay:
         client.post(
             url_for_security("login"),
             data={"email": users[0]["email"], "password": "tester"},
@@ -122,9 +127,12 @@ def test_ingest(
             )
         assert response.status_code == HTTPStatus.CREATED
 
-        assert task_delay.call_count == 1
-        task_self = task_delay.call_args[0][0]
-        task_self.apply()
+        # Check that we attempted to queue a task if not shortcutting the unpacking
+        if packaging == PackagingFormat.Binary:
+            assert unpack_delay.call_count == 0
+        else:
+            assert unpack_delay.call_count == 1
+            tasks.unpack_object(*unpack_delay.call_args[0])
 
         response = client.get(response.headers["Location"])
 
@@ -169,7 +177,9 @@ def test_create_with_metadata_and_then_ingest(
     content_type,
     expected_links,
 ):
-    with api.test_request_context(), api.test_client() as client:
+    with api.test_request_context(), api.test_client() as client, mock.patch.object(
+        tasks.unpack_object, "delay"
+    ) as unpack_delay:
         client.post(
             url_for_security("login"),
             data={"email": users[0]["email"], "password": "tester"},
@@ -199,9 +209,12 @@ def test_create_with_metadata_and_then_ingest(
                 },
             )
 
-        assert task_delay.call_count == 1
-        task_self = task_delay.call_args[0][0]
-        task_self.apply()
+        # Check that we attempted to queue a task if not shortcutting the unpacking
+        if packaging == PackagingFormat.Binary:
+            assert unpack_delay.call_count == 0
+        else:
+            assert unpack_delay.call_count == 1
+            tasks.unpack_object(*unpack_delay.call_args[0])
 
         response = client.get(response.headers["Location"])
 

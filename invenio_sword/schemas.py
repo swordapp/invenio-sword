@@ -60,6 +60,17 @@ class _ByReferenceFileSchema(Schema):
                 data["temporary_id"] = rv["temporary_id"]
                 del data["url"]
 
+    @validates("packaging")
+    def validate_packaging(self, value):
+        if (
+            self.context.get("binary_packaging_only")
+            and value != PackagingFormat.Binary
+        ):
+            raise ValidationError(
+                "Packaging must be '{}', if provided".format(PackagingFormat.Binary)
+            )
+        return value
+
     @post_load
     def make_object(self, data, **kwargs):
         return ByReferenceFileDefinition(**data)
@@ -79,6 +90,11 @@ class ByReferenceSchema(Schema):
         data_key="byReferenceFiles",
         required=True,
     )
+
+    @validates("files")
+    def validate_files_length(self, value):
+        if self.context.get("max_files"):
+            return validate.Length(max=self.context["max_files"])(value)
 
 
 class SegmentInitSchema(Schema):
@@ -105,6 +121,7 @@ class SegmentInitSchema(Schema):
             current_app.config["FILES_REST_MULTIPART_CHUNKSIZE_MAX"],
         )(value),
     )
+    digest = fields.String(required=False)
 
     @validates_schema
     def validate_segment_count(self, data, **kwargs):

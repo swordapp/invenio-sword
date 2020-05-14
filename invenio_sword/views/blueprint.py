@@ -10,9 +10,18 @@ from flask import Blueprint
 from flask import Response
 
 import sword3common
+import sword3common.constants
+import sword3common.exceptions
 from invenio_deposit.search import DepositSearch
 from invenio_deposit.views.rest import create_error_handlers
+from invenio_pidstore.errors import (
+    PIDDoesNotExistError,
+    PIDInvalidAction,
+    PersistentIdentifierError,
+)
+from invenio_records_rest.errors import PIDDeletedRESTError, PIDDoesNotExistRESTError
 from invenio_records_rest.utils import obj_or_import_string
+from invenio_rest.errors import RESTException
 
 from . import (
     DepositFilesetView,
@@ -135,6 +144,7 @@ def create_blueprint(config) -> Blueprint:
                         status=HTTPStatus.NO_CONTENT
                     )
                 },
+                ctx=ctx,
             ),
         )
 
@@ -167,7 +177,7 @@ def create_blueprint(config) -> Blueprint:
                     "@type": exc.name,
                     "error": exc.reason,
                     "log": exc.message,
-                    "timestamp": exc.timestamp.isoformat(),
+                    "timestamp": exc.timestamp.replace(microsecond=0).isoformat(),
                 }
             ),
             content_type="application/ld+json",
@@ -182,14 +192,37 @@ def create_blueprint(config) -> Blueprint:
                     "@context": sword3common.constants.JSON_LD_CONTEXT,
                     "@type": sword3common.exceptions.ValidationFailed.name,
                     "error": sword3common.exceptions.ValidationFailed.reason,
-                    "timestamp": datetime.datetime.now(
-                        tz=datetime.timezone.utc
-                    ).isoformat(),
+                    "timestamp": datetime.datetime.now(tz=datetime.timezone.utc)
+                    .replace(microsecond=0)
+                    .isoformat(),
                     "errors": exc.messages,
+                    "log": "\n\n".join(
+                        "{}\n  {}".format(key, exc.messages[key])
+                        for key in exc.messages
+                    ),
                 }
             ),
             content_type="application/ld+json",
             status=sword3common.exceptions.ValidationFailed.status_code,
         )
+
+    invenio_exception_mapping = [
+        (PIDDeletedRESTError, sword3common.exceptions.Gone),
+        (PIDDoesNotExistRESTError, sword3common.exceptions.NotFound),
+        (PIDDoesNotExistError, sword3common.exceptions.NotFound),
+        (PIDInvalidAction, sword3common.exceptions.AuthenticationFailed),
+    ]
+
+    @blueprint.errorhandler(PersistentIdentifierError)
+    @blueprint.errorhandler(RESTException)
+    def invenio_exception_handler(exc):
+        for invenio_exception_cls, sword_exception_cls in invenio_exception_mapping:
+            if isinstance(exc, invenio_exception_cls):
+                exc = sword_exception_cls(exc.description)
+                break
+        else:
+            return None
+
+        return sword_exception_handler(exc)
 
     return blueprint

@@ -19,16 +19,17 @@ from werkzeug.http import parse_options_header
 from invenio_files_rest.errors import MultipartMissingParts, UnexpectedFileSizeError
 from invenio_files_rest.models import MultipartObject, Part
 from invenio_records_rest.views import need_record_permission
+from invenio_rest import ContentNegotiatedMethodView
 from invenio_sword.api import SegmentedUploadRecord
 
 from invenio_sword.schemas import SegmentInitSchema, SegmentUploadSchema
-from invenio_sword.views import SWORDDepositView
+from invenio_sword.views import SWORDDepositMixin
 
 
 __all__ = ["StagingURLView", "TemporaryURLView"]
 
 
-class SegmentedUploadView(SWORDDepositView):
+class SegmentedUploadView(SWORDDepositMixin, ContentNegotiatedMethodView):
     record_class = SegmentedUploadRecord
 
 
@@ -80,19 +81,22 @@ class TemporaryURLView(SegmentedUploadView):
         except NoResultFound as e:
             raise sword3common.exceptions.NotFound from e
         if int(current_user.get_id()) not in record["_segmentedUpload"]["owners"]:
-            raise sword3common.exceptions.SwordException.for_status_code_and_name(
-                HTTPStatus.FORBIDDEN, None
-            )
-        multipart_object: MultipartObject = MultipartObject.query.filter_by(
-            bucket_id=record.bucket_id,
-        ).one()
+            raise sword3common.exceptions.AuthenticationFailed
+        try:
+            multipart_object: MultipartObject = MultipartObject.query.filter_by(
+                bucket_id=record.bucket_id,
+            ).one()
+        except NoResultFound as e:
+            raise sword3common.exceptions.Gone from e
         return super().dispatch_request(
             record=record, multipart_object=multipart_object, *args, **kwargs
         )
 
     def get(self, *, record: SegmentedUploadRecord, multipart_object: MultipartObject):
-        part_numbers = set(
-            db.session.query(Part.part_number).filter_by(
+        # Segment numbers (SWORD) are 1-based; part numbers (Invenio) are 0-based.
+        segment_numbers = set(
+            (part_number + 1)
+            for (part_number,) in db.session.query(Part.part_number).filter_by(
                 upload_id=multipart_object.upload_id
             )
         )
@@ -102,9 +106,9 @@ class TemporaryURLView(SegmentedUploadView):
         return {
             "@type": "Temporary",
             "segments": {
-                "received": sorted(part_numbers),
+                "received": sorted(segment_numbers),
                 "expecting": [
-                    i for i in range(1, segment_count + 1) if i not in part_numbers
+                    i for i in range(1, segment_count + 1) if i not in segment_numbers
                 ],
                 "size": multipart_object.size,
                 "segment_size": multipart_object.chunk_size,

@@ -216,7 +216,7 @@ def test_dereference_task(
             {
                 ObjectTagKey.ByReferenceURL: httpserver.url_for("some-file.txt"),
                 # This one should get removed after dereferencing
-                ObjectTagKey.ByReferenceNotDeleted: "true",
+                ObjectTagKey.NotDeleted: "true",
                 ObjectTagKey.Packaging: PackagingFormat.SimpleZip,
             }
         )
@@ -315,7 +315,7 @@ def test_error_dereferencing(
             {
                 ObjectTagKey.ByReferenceURL: httpserver.url_for("some-file.txt"),
                 # This one should get removed after dereferencing
-                ObjectTagKey.ByReferenceNotDeleted: "true",
+                ObjectTagKey.NotDeleted: "true",
                 ObjectTagKey.Packaging: PackagingFormat.SimpleZip,
             }
         )

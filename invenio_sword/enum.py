@@ -14,7 +14,7 @@ class ObjectTagKey(enum.Enum):
     ByReferenceTTL = "invenio_sword.byReferenceTTL"
     ByReferenceContentLength = "invenio_sword.byReferenceContentLength"
     # Used to mark an object version as extent, even though it's not got a file.
-    ByReferenceNotDeleted = "invenio_sword.byReferenceNotDeleted"
+    NotDeleted = "invenio_sword.notDeleted"
 
 
 class FileState(enum.Enum):

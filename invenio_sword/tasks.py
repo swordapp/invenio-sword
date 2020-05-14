@@ -9,6 +9,7 @@ import celery
 from celery.result import AsyncResult
 from invenio_db import db
 from sqlalchemy import true
+from sqlalchemy.orm.exc import NoResultFound
 
 from invenio_files_rest.models import MultipartObject, ObjectVersion
 from invenio_files_rest.models import ObjectVersionTag
@@ -23,9 +24,21 @@ logger = logging.getLogger(__name__)
 
 @celery.shared_task
 def dereference_object(record_id, version_id):
-    object_version = ObjectVersion.query.filter(
-        ObjectVersion.version_id == version_id
-    ).one()
+    import time
+
+    for i in range(100):
+        try:
+            object_version = ObjectVersion.query.filter(
+                ObjectVersion.version_id == version_id
+            ).one()
+        except NoResultFound as e:
+            time.sleep(0.01)
+            continue
+        else:
+            break
+
+    logging.info("Took %d extra attempts", i)
+
     if not object_version.is_head:
         logger.info(
             "Not fetching by-reference file (%s) because a newer version of the object now exists",
@@ -63,7 +76,7 @@ def dereference_object(record_id, version_id):
                 "Missing URL for by-reference file {!r}".format(object_version)
             )
         tags[ObjectTagKey.FileState] = FileState.Pending
-        del tags[ObjectTagKey.ByReferenceNotDeleted]
+        del tags[ObjectTagKey.NotDeleted]
         return [object_version.key]
     except Exception:
         logger.exception("Error retrieving by-reference file")
@@ -104,10 +117,22 @@ def unpack_object(record_id, version_id):
         db.session.commit()
 
 
+def _flatten(it):
+    it = list(it)
+    while it:
+        while it and isinstance(it[0], Iterable) and not isinstance(it[0], str):
+            it[0:1] = it[0]
+        if it:
+            yield it.pop(0)
+
+
 @celery.shared_task
 def delete_old_objects(
-    ignore_keys: Union[Sequence[AsyncResult], Iterable[str]] = (), *, bucket_id: str
+    ignore_keys: Union[Iterable[Iterable[str]], Iterable[str]] = (), *, bucket_id: str
 ):
+
+    ignore_keys = list(_flatten(ignore_keys))
+    print(ignore_keys)
     for object_version in ObjectVersion.query.join(ObjectVersionTag).filter(
         ObjectVersion.bucket_id == bucket_id,
         ObjectVersion.key.notin_(ignore_keys),
@@ -127,7 +152,7 @@ def delete_old_objects(
             # Delete any tags that say that an ObjectVersion is a yet-to-be-dereferenced file
             ObjectVersionTag.query.filter(
                 ObjectVersionTag.version_id == object_version.version_id,
-                ObjectVersionTag.key == ObjectTagKey.ByReferenceNotDeleted.value,
+                ObjectVersionTag.key == ObjectTagKey.NotDeleted.value,
                 ObjectVersionTag.value == "true",
             ).delete()
 

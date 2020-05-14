@@ -5,14 +5,15 @@ from flask import Response
 from invenio_db import db
 from invenio_records_rest.views import need_record_permission
 from invenio_records_rest.views import pass_record
+from invenio_rest import ContentNegotiatedMethodView
 
-from . import SWORDDepositView
+from . import SWORDDepositMixin
 from ..api import SWORDDeposit
 
 __all__ = ["DepositMetadataView"]
 
 
-class DepositMetadataView(SWORDDepositView):
+class DepositMetadataView(SWORDDepositMixin, ContentNegotiatedMethodView):
     view_name = "{}_metadata"
 
     @pass_record

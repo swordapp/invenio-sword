@@ -4,14 +4,15 @@ from flask import Response
 from invenio_db import db
 from invenio_records_rest.views import need_record_permission
 from invenio_records_rest.views import pass_record
+from invenio_rest import ContentNegotiatedMethodView
 
-from . import SWORDDepositView
+from . import SWORDDepositMixin
 from ..api import SWORDDeposit
 
 __all__ = ["DepositStatusView"]
 
 
-class DepositStatusView(SWORDDepositView):
+class DepositStatusView(SWORDDepositMixin, ContentNegotiatedMethodView):
     view_name = "{}_item"
 
     @pass_record
