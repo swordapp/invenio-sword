@@ -34,33 +34,18 @@ history = open("CHANGES.rst").read()
 
 invenio_search_version = "1.2.0"
 
-setup_requires = [
-    "Babel>=1.3",
-    "pytest-runner>=2.6.2",
-]
-
 install_requires = [
     "bagit",
-    "Flask-BabelEx>=0.9.3",
-    "Flask-Login>=0.3.2",
-    "Flask>=0.11.1",
     "marshmallow",
     "rdflib",
     "rdflib-jsonld",
-    "SQLAlchemy-Continuum>=1.3.6",
-    "SQLAlchemy-Utils[encrypted]>=0.33",
-    "dictdiffer>=0.5.0.post1",
-    "invenio-assets>=1.0.0",
     "invenio-celery",
-    "invenio-db[versioning]>=1.0.1",
-    "invenio-deposit>=1.0.0a1",
-    "invenio-files-rest>=1.0.1",
-    "invenio-jsonschemas>=1.0.0a3",
-    "invenio-oauth2server>=1.0.3",
-    "invenio-records-files>=1.0.0a10",
-    "invenio-records-rest>=1.5.0",
-    "invenio-records-ui>=1.0.1",
-    "invenio-search-ui>=1.0.0a5",
+    "invenio-db[versioning]",
+    "invenio-deposit",
+    "invenio-files-rest",
+    "invenio-jsonschemas",
+    "invenio-records-files",
+    "invenio-records-rest",
     "rfc6266-parser",
     "sword3common",
     # We use typing.Protocol, which is Py3.8+, but is available in typing-extensions for backwards compatibility
@@ -105,7 +90,6 @@ setup(
         "invenio_celery.tasks": ["invenio_sword = invenio_sword.tasks",],
     },
     install_requires=install_requires,
-    setup_requires=setup_requires,
     extras_require={"test": ["pytest", "pytest-httpserver",]},
     classifiers=[
         "Environment :: Web Environment",
