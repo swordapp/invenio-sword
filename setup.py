@@ -32,8 +32,6 @@ from setuptools import setup
 readme = open("README.rst").read()
 history = open("CHANGES.rst").read()
 
-invenio_search_version = "1.2.0"
-
 install_requires = [
     "bagit",
     "marshmallow",
@@ -69,9 +67,9 @@ setup(
     long_description_content_type="text/x-rst",
     keywords="invenio sword deposit upload",
     license="GPLv2",
-    author="CERN",
-    author_email="info@inveniosoftware.org",
-    url="https://github.com/inveniosoftware/invenio-sword",
+    author="Cottage Labs LLP",
+    author_email="us@cottagelabs.com",
+    url="https://github.com/cottagelabs/invenio-sword",
     packages=packages,
     zip_safe=False,
     include_package_data=True,
@@ -91,6 +89,7 @@ setup(
     },
     install_requires=install_requires,
     extras_require={"test": ["pytest", "pytest-httpserver",]},
+    python_requires=">=3.7",
     classifiers=[
         "Environment :: Web Environment",
         "Intended Audience :: Developers",
