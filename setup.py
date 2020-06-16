@@ -39,7 +39,7 @@ install_requires = [
     "rdflib-jsonld",
     "invenio-celery",
     "invenio-db[versioning]",
-    "invenio-deposit",
+    #    "invenio-deposit",
     "invenio-files-rest",
     "invenio-jsonschemas",
     "invenio-records-files",
