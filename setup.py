@@ -69,7 +69,7 @@ setup(
     license="GPLv2",
     author="Cottage Labs LLP",
     author_email="us@cottagelabs.com",
-    url="https://github.com/cottagelabs/invenio-sword",
+    url="https://github.com/swordapp/invenio-sword",
     packages=packages,
     zip_safe=False,
     include_package_data=True,

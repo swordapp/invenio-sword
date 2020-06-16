@@ -1,7 +1,23 @@
 Installation
 ============
 
-First, add "invenio-sword" to your ``Pipfile`` or ``setup.py``.
+With InvenioRDM
+---------------
+
+The simplest way to get set up with invenio-sword is through InvenioRDM. If you don't already have an InvenioRDM
+instance, follow `the InvenioRDM installation instructions <https://inveniordm.docs.cern.ch/install/>`_
+
+First, add "invenio-sword" to your ``Pipfile`` with:
+
+.. code:: shell
+
+   $ pipenv install invenio-sword
+
+Then you can run your InvenioRDM instance as normal with `invenio-cli containerize`.
+
+
+Outside InvenioRDM
+------------------
 
 If you are using invenio-app, then invenio-sword will be discovered automatically through its entrypoints. Otherwise,
 add ``InvenioSword`` to your API application:
