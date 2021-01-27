@@ -36,7 +36,7 @@ from time import sleep
 
 import pytest
 from celery.canvas import Signature
-from celery.task import Task
+from celery import Task
 from elasticsearch.exceptions import RequestError
 from flask import Flask
 from flask_babelex import Babel
@@ -44,6 +44,8 @@ from flask_breadcrumbs import Breadcrumbs
 from flask_celeryext import FlaskCeleryExt
 from flask_oauthlib.provider import OAuth2Provider
 from flask_security import login_user
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
+
 from helpers import fill_oauth2_headers
 from helpers import make_pdf_fixture
 from invenio_access import InvenioAccess
@@ -89,7 +91,6 @@ from sqlalchemy import inspect
 from sqlalchemy_utils.functions import create_database
 from sqlalchemy_utils.functions import database_exists
 from sqlalchemy_utils.functions import drop_database
-from werkzeug.wsgi import DispatcherMiddleware
 
 from invenio_sword import InvenioSword
 from invenio_sword.metadata import Metadata

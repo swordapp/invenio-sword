@@ -3,6 +3,7 @@ from __future__ import annotations
 import mimetypes
 import typing
 import uuid
+from typing import Any
 from typing import Collection
 from typing import Union
 
@@ -38,7 +39,7 @@ class Packaging:
 
     def shortcut_unpack(
         self, object_version: ObjectVersion
-    ) -> Union[NotImplemented, Collection[str]]:
+    ) -> Union[Any, Collection[str]]:
         """Override this to shortcut task-based unpacking"""
         return NotImplemented
 
