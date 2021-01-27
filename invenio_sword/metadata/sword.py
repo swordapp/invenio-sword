@@ -33,8 +33,10 @@ class SWORDMetadata(JSONMetadata):
                 "Content-Type must be {}".format(cls.content_type)
             )
         if isinstance(document, BytesReader):
+            if encoding not in ('U8', 'UTF', 'utf8', 'utf_8', 'utf-8', 'cp65001'):
+                raise ValueError("encoding must be utf_8 or an alias thereof")
             try:
-                data = json.load(document, encoding=encoding)
+                data = json.load(document)
             except json.JSONDecodeError as e:
                 raise ContentMalformed("Unable to parse JSON") from e
         else:
