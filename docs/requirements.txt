@@ -4,7 +4,7 @@ amqp==2.5.2
 angular-gettext-babel==0.3
 arrow==0.15.5
 attrs==19.3.0
-Babel==2.8.0
+Babel==2.9.1
 bagit==1.7.0
 base32-lib==1.0.1
 billiard==3.5.0.5
