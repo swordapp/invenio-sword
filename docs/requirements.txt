@@ -87,7 +87,7 @@ passlib==1.7.2
 pluggy==0.13.1
 pycparser==2.19
 Pygments==2.5.2
-PyJWT==1.7.1
+PyJWT==2.4.0
 pynpm==0.1.1
 pyparsing==2.4.6
 pyrsistent==0.15.7
